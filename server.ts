@@ -36,6 +36,31 @@ const FALLBACK_ANALYSES = [
     }
   },
   {
+    keywords: ["sangrado", "sangre", "heces", "deposiciones", "evacuacion", "gastrointestinal", "rectorragia", "melena"],
+    analysis: {
+      nandaCode: "00027",
+      nandaName: "Déficit de volumen de líquidos",
+      definition: "Disminución del líquido intravascular, intersticial y/o intracelular. Se refiere a la deshidratación.",
+      relatedFactors: ["Pérdida activa del volumen de líquidos (sangrado, evacuaciones)", "Ingesta insuficiente de líquidos"],
+      nocCode: "0601",
+      nocName: "Equilibrio hídrico",
+      nocIndicators: [
+        { code: "060101", name: "Presión arterial dentro de límites normales" },
+        { code: "060107", name: "Entradas y salidas diarias equilibradas" },
+        { code: "060109", name: "Densidad urinaria normal" }
+      ],
+      nicCode: "4120",
+      nicName: "Manejo de líquidos",
+      nicActivities: [
+        "Registrar de forma exacta las entradas y salidas diarias (balance hídrico).",
+        "Administrar terapia de hidratación intravenosa según prescripción médica.",
+        "Supervisar el estado hemodinámico general del paciente (pulso, presión arterial).",
+        "Vigilar signos de sangrado activo en heces o vómitos."
+      ],
+      justification: "El reporte de sangrado en heces o evacuaciones con pérdida activa representa un riesgo inminente de Déficit de volumen de líquidos [00027] que debe ser monitorizado."
+    }
+  },
+  {
     keywords: ["aire", "disnea", "respirar", "oxigeno", "ahogo", "fatiga", "pecho", "ventilacion", "asma", "pulmon", "asfixia", "taquipnea", "sibilancia", "dificultad respiratoria"],
     analysis: {
       nandaCode: "00032",
