@@ -191,12 +191,21 @@ export default function App() {
     setAnalysisResult(null);
     setCopiedNote(false);
 
+    // Setup an 8-second timeout controller for UX reliability (prevents infinite loading)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      try { controller.abort(); } catch(e) {}
+    }, 8000);
+
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symptoms: promptToUse })
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('API server error response');
@@ -216,7 +225,8 @@ export default function App() {
         setChosenActivities(data.nicActivities.slice(0, 3));
       }
     } catch (error) {
-      console.warn('Backend API failed, running offline client analyzer fallback:', error);
+      clearTimeout(timeoutId);
+      console.warn('Backend API failed or timed out, running offline client analyzer fallback:', error);
       const fallbackData = getClientFallbackAnalysis(promptToUse);
       setAnalysisResult(fallbackData);
       
