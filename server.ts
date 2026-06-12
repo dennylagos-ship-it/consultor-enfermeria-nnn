@@ -88,7 +88,7 @@ const FALLBACK_ANALYSES = [
     }
   },
   {
-    keywords: ["infeccion", "fiebre", "herida", "pus", "operado", "cirugia", "sangre", "riesgo", "cortada", "sutura", "sepsis", "quirúrgica", "catéter", "cateter"],
+    keywords: ["infeccion", "fiebre", "herida", "pus", "operado", "cirugia", "sangre", "riesgo", "cortada", "sutura", "sepsis", "quirúrgica", "catéter", "cateter", "vaginal", "purulenta", "purulento", "secrecion", "flujo"],
     analysis: {
       nandaCode: "00004",
       nandaName: "Riesgo de infección",
