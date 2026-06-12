@@ -1,0 +1,6 @@
+{
+  "name": "Enfermería NNN",
+  "description": "Plataforma inteligente de soporte a la decisión clínica y gestión de cuidados de enfermería con taxonomías NANDA, NOC, NIC e inteligencia artificial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

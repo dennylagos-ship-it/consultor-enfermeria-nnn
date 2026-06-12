@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consulta Taxonómica NNN - Enfermería Inteligente (NANDA 2024-2026, NOC 7.ª Ed. & NIC 8.ª Ed.)</title>
+    <script>
+      // Safeguard for global window fetch assignment by third-party extensions/tools
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            value: originalFetch,
+            writable: true,
+            configurable: true
+          });
+        } catch (e) {
+          // Fail-safe
+        }
+      })();
+
+      // Safeguard for Node and Element prototype methods against buggy browser extensions
+      (function() {
+        try {
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          document.documentElement.appendChild(iframe);
+          var cleanWin = iframe.contentWindow;
+          var cleanNodeProto = cleanWin.Node.prototype;
+          var cleanElementProto = cleanWin.Element.prototype;
+
+          var methodsToRestore = [
+            { proto: Node.prototype, name: 'insertBefore', cleanFunc: cleanNodeProto.insertBefore },
+            { proto: Node.prototype, name: 'removeChild', cleanFunc: cleanNodeProto.removeChild },
+            { proto: Node.prototype, name: 'appendChild', cleanFunc: cleanNodeProto.appendChild },
+            { proto: Node.prototype, name: 'replaceChild', cleanFunc: cleanNodeProto.replaceChild },
+            { proto: Element.prototype, name: 'setAttribute', cleanFunc: cleanElementProto.setAttribute },
+            { proto: Element.prototype, name: 'removeAttribute', cleanFunc: cleanElementProto.removeAttribute }
+          ];
+
+          methodsToRestore.forEach(function(item) {
+            var cleanFunc = item.cleanFunc;
+            Object.defineProperty(item.proto, item.name, {
+              get: function() {
+                return cleanFunc;
+              },
+              set: function(newValue) {
+                // Ignore silent attempts to overwrite the native DOM methods
+              },
+              configurable: true
+            });
+          });
+
+          document.documentElement.removeChild(iframe);
+          console.log("NNN System: Successfully secured native DOM prototypes from extension interference.");
+        } catch (e) {
+          console.warn("NNN System: Failed to secure native DOM prototypes:", e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
