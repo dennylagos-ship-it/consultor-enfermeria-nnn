@@ -82,6 +82,11 @@ export default function App() {
   // Toggle landing page with instructions
   const [showLanding, setShowLanding] = useState<boolean>(true);
 
+  // Scroll to top when switching between landing/instruction screen and main workspace
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [showLanding]);
+
   // Mode selection for left column
   const [nandaMode, setNandaMode] = useState<'ai_analizer' | 'catalog' | 'domains'>('ai_analizer');
   
