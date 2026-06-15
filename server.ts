@@ -1,9 +1,10 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS } from "./src/data";
+import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, findBestNoc, findBestNic } from "./src/data";
 
 dotenv.config();
 
@@ -408,9 +409,160 @@ function isValidApiKey(key: any): boolean {
   return true;
 }
 
+const CACHE_PATH = path.join(process.cwd(), "nanda_mappings_cache.json");
+
+function readCache() {
+  try {
+    if (fs.existsSync(CACHE_PATH)) {
+      const content = fs.readFileSync(CACHE_PATH, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.error("Error reading NANDA mapping cache:", err);
+  }
+  return {};
+}
+
+function writeCache(cache: any) {
+  try {
+    fs.writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing NANDA mapping cache:", err);
+  }
+}
+
+async function resolveNandaMapping(nandaCode: string, nandaName: string, apiKey: string | undefined): Promise<any> {
+  const cache = readCache();
+  if (cache[nandaCode]) {
+    console.log(`[Cache Hit] NANDA mapping for code ${nandaCode}`);
+    return cache[nandaCode];
+  }
+
+  console.log(`[Cache Miss] Resolving NANDA mapping for code ${nandaCode} (${nandaName})`);
+  
+  const diagnosis = DIAGNOSES.find(d => d.code === nandaCode);
+  const nandaDef = diagnosis?.definition || "";
+
+  // 1. Check if Gemini API is available
+  if (isValidApiKey(apiKey)) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          }
+        }
+      });
+
+      const promptText = `Eres un experto certificado en taxonomías de enfermería (NANDA-I, NOC y NIC).
+Para el siguiente diagnóstico NANDA:
+Código NANDA: "${nandaCode}"
+Nombre NANDA: "${nandaName}"
+Definición NANDA: "${nandaDef}"
+
+Realiza una búsqueda exhaustiva en internet y localiza el resultado NOC oficial (o el más recomendado y vinculado) y la intervención NIC oficial (o la más recomendada y vinculada) para este diagnóstico NANDA.
+Devuelve la respuesta en formato JSON estrictamente válido, sin envolverlo en bloques de código markdown, con la siguiente estructura de campos:
+{
+  "nocCode": "código de 4 dígitos del resultado NOC",
+  "nocName": "nombre oficial del resultado NOC en español",
+  "nocDefinition": "definición oficial del resultado NOC",
+  "nocIndicators": [
+    { "code": "código de 6 dígitos del indicador", "name": "nombre del indicador en español" }
+  ],
+  "nicCode": "código de 4 dígitos de la intervención NIC",
+  "nicName": "nombre oficial de la intervención NIC en español",
+  "nicActivities": [
+    "actividad de enfermería 1 en español",
+    "actividad de enfermería 2 en español",
+    "actividad de enfermería 3 en español",
+    "actividad de enfermería 4 en español"
+  ]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: promptText,
+        config: {
+          tools: [{ googleSearch: {} }]
+        }
+      });
+
+      let responseText = response.text || "";
+      console.log(`[AI Search Grounding] Raw response for NANDA ${nandaCode}:`, responseText);
+
+      // Clean response text of markdown blocks
+      responseText = responseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      const parsed = JSON.parse(responseText);
+
+      // Align and enrich with local database if exists
+      let finalNocCode = parsed.nocCode || "0403";
+      let finalNocName = parsed.nocName || "Estado respiratorio: ventilación";
+      let finalNocIndicators = parsed.nocIndicators || [];
+      const localNoc = NOC_OUTCOMES.find(n => n.code === finalNocCode);
+      if (localNoc) {
+        finalNocName = localNoc.name;
+        finalNocIndicators = localNoc.indicators;
+      }
+
+      let finalNicCode = parsed.nicCode || "3350";
+      let finalNicName = parsed.nicName || "Monitorización respiratoria";
+      let finalNicActivities = parsed.nicActivities || [];
+      const localNic = NIC_INTERVENTIONS.find(n => n.code === finalNicCode);
+      if (localNic) {
+        finalNicName = localNic.name;
+        finalNicActivities = localNic.activities;
+      }
+
+      const mapping = {
+        nandaCode,
+        nandaName,
+        nocCode: finalNocCode,
+        nocName: finalNocName,
+        nocIndicators: finalNocIndicators,
+        nicCode: finalNicCode,
+        nicName: finalNicName,
+        nicActivities: finalNicActivities,
+        justification: `Vínculo oficial obtenido mediante búsqueda IA y validado con taxonomía.`
+      };
+
+      // Save to cache
+      cache[nandaCode] = mapping;
+      writeCache(cache);
+      return mapping;
+
+    } catch (err: any) {
+      console.error(`[AI Resolution Failed] Error resolving mapping for NANDA ${nandaCode}:`, err.message || err);
+    }
+  }
+
+  // 2. Fallback to Local Text Similarity Matching
+  console.log(`[Local Fallback] Finding best local NOC/NIC for NANDA ${nandaCode}`);
+  const bestNoc = findBestNoc(nandaName, nandaDef);
+  const bestNic = findBestNic(nandaName, nandaDef);
+
+  const localMapping = {
+    nandaCode,
+    nandaName,
+    nocCode: bestNoc.code,
+    nocName: bestNoc.name,
+    nocIndicators: bestNoc.indicators || [],
+    nicCode: bestNic.code,
+    nicName: bestNic.name,
+    nicActivities: bestNic.activities || [],
+    justification: `Asociación local offline mediante coincidencia de palabras clave por faltar conexión o límite de IA.`
+  };
+
+  // Cache it for subsequent requests
+  cache[nandaCode] = localMapping;
+  writeCache(cache);
+  return localMapping;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
   app.post("/api/search-taxonomy", async (req, res) => {
@@ -600,6 +752,23 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
     }
   });
 
+  app.post("/api/get-nanda-mapping", async (req, res) => {
+    const { nandaCode, nandaName } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!nandaCode || !nandaName) {
+      return res.status(400).json({ error: "NANDA code and name are required" });
+    }
+
+    try {
+      const mapping = await resolveNandaMapping(nandaCode, nandaName, apiKey);
+      res.json({ mapping, isFallback: false });
+    } catch (err: any) {
+      console.error("Error in /api/get-nanda-mapping route:", err.message || err);
+      res.status(500).json({ error: "Failed to map NANDA diagnosis", details: err.message || err });
+    }
+  });
+
   app.use(express.json());
 
   // API Route for Gemini Symptoms Analysis
@@ -706,7 +875,22 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
       }
 
       const parsedResult = JSON.parse(responseText.trim());
-      res.json({ ...parsedResult, isFallback: false });
+      
+      // Resolve/override NOC and NIC for absolute database consistency and caching support
+      const resolvedMapping = await resolveNandaMapping(parsedResult.nandaCode, parsedResult.nandaName, apiKey);
+      
+      const responseData = {
+        ...parsedResult,
+        nocCode: resolvedMapping.nocCode,
+        nocName: resolvedMapping.nocName,
+        nocIndicators: resolvedMapping.nocIndicators,
+        nicCode: resolvedMapping.nicCode,
+        nicName: resolvedMapping.nicName,
+        nicActivities: resolvedMapping.nicActivities,
+        justification: parsedResult.justification || resolvedMapping.justification
+      };
+
+      res.json({ ...responseData, isFallback: false });
 
     } catch (error: any) {
       console.log("Symptoms analyzer fallbacked smoothly. Detalle de aviso:", error.message || error);

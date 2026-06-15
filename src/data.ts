@@ -6029,3 +6029,89 @@ export const NANDA_DOMAINS: NandaDomain[] = [
     ]
   }
 ];
+
+export function normalizeText(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ");
+}
+
+export function findBestNoc(nandaName: string, nandaDef: string): NocOutcome {
+  const queryText = normalizeText(`${nandaName} ${nandaDef}`);
+  const words = queryText.split(/\s+/).filter(w => w.length > 3);
+  
+  let bestNoc = NOC_OUTCOMES[0];
+  let maxScore = -1;
+  
+  for (const noc of NOC_OUTCOMES) {
+    let score = 0;
+    const nocText = normalizeText(`${noc.name} ${noc.definition}`);
+    
+    for (const word of words) {
+      if (nocText.includes(word)) {
+        score += word.length * 2; // Exact word match gets higher score
+      }
+    }
+    
+    // Check indicators
+    if (noc.indicators) {
+      for (const ind of noc.indicators) {
+        const indText = normalizeText(ind.name);
+        for (const word of words) {
+          if (indText.includes(word)) {
+            score += Math.floor(word.length * 0.8);
+          }
+        }
+      }
+    }
+    
+    if (score > maxScore) {
+      maxScore = score;
+      bestNoc = noc;
+    }
+  }
+  
+  return bestNoc;
+}
+
+export function findBestNic(nandaName: string, nandaDef: string): NicIntervention {
+  const queryText = normalizeText(`${nandaName} ${nandaDef}`);
+  const words = queryText.split(/\s+/).filter(w => w.length > 3);
+  
+  let bestNic = NIC_INTERVENTIONS[0];
+  let maxScore = -1;
+  
+  for (const nic of NIC_INTERVENTIONS) {
+    let score = 0;
+    const nicText = normalizeText(nic.name);
+    
+    for (const word of words) {
+      if (nicText.includes(word)) {
+        score += word.length * 2;
+      }
+    }
+    
+    // Check activities
+    if (nic.activities) {
+      for (const act of nic.activities) {
+        const actText = normalizeText(act);
+        for (const word of words) {
+          if (actText.includes(word)) {
+            score += Math.floor(word.length * 0.8);
+          }
+        }
+      }
+    }
+    
+    if (score > maxScore) {
+      maxScore = score;
+      bestNic = nic;
+    }
+  }
+  
+  return bestNic;
+}
+

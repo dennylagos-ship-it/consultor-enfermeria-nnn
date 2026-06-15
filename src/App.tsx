@@ -22,7 +22,7 @@ import {
   FileText
 } from 'lucide-react';
 import { Diagnosis, NocOutcome, NicIntervention } from './types';
-import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, NANDA_DOMAINS } from './data';
+import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, NANDA_DOMAINS, findBestNoc, findBestNic } from './data';
 
 // Class Component Error Boundary to catch and display any React runtime crashes on screen
 interface ErrorBoundaryProps {
@@ -34,10 +34,12 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+  props: ErrorBoundaryProps;
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.props = props;
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -96,6 +98,7 @@ export default function App() {
   
   // Main mapping result (active plan workspace)
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
+  const [isMappingLoading, setIsMappingLoading] = useState<boolean>(false);
   
   // Checkbox selections inside active workspace
   const [chosenFactors, setChosenFactors] = useState<string[]>([]);
@@ -163,8 +166,23 @@ export default function App() {
       }
     }
 
-    const matchedNoc = NOC_OUTCOMES.find(n => n.code === bestDiag.defaultNocCode) || NOC_OUTCOMES[0];
-    const matchedNic = NIC_INTERVENTIONS.find(n => n.code === bestDiag.defaultNicCode) || NIC_INTERVENTIONS[0];
+    const isNocInvalid = !bestDiag.defaultNocCode || 
+      bestDiag.defaultNocCode === "Not specified in source" || 
+      bestDiag.defaultNocCode === "N/A" || 
+      bestDiag.defaultNocCode === "Not Provided in Source";
+      
+    const isNicInvalid = !bestDiag.defaultNicCode || 
+      bestDiag.defaultNicCode === "Not specified in source" || 
+      bestDiag.defaultNicCode === "N/A" || 
+      bestDiag.defaultNicCode === "Not Provided in Source";
+
+    const matchedNoc = isNocInvalid 
+      ? findBestNoc(bestDiag.name, bestDiag.definition) 
+      : (NOC_OUTCOMES.find(n => n.code === bestDiag.defaultNocCode) || NOC_OUTCOMES[0]);
+
+    const matchedNic = isNicInvalid 
+      ? findBestNic(bestDiag.name, bestDiag.definition) 
+      : (NIC_INTERVENTIONS.find(n => n.code === bestDiag.defaultNicCode) || NIC_INTERVENTIONS[0]);
 
     return {
       nandaCode: bestDiag.code,
@@ -266,15 +284,19 @@ export default function App() {
         if (!response.ok) throw new Error('API search error');
         const data = await response.json();
         if (data.results) {
-          const mapped = data.results.map((item: any, idx: number) => ({
-            id: `custom-nanda-${idx}-${Date.now()}`,
-            code: item.code,
-            name: item.name,
-            definition: item.definition || 'Sin definición',
-            relatedFactors: item.relatedFactors || [],
-            defaultNocCode: item.defaultNocCode || '0403',
-            defaultNicCode: item.defaultNicCode || '3350'
-          }));
+          const mapped = data.results.map((item: any, idx: number) => {
+            const bestN = findBestNoc(item.name, item.definition || '');
+            const bestI = findBestNic(item.name, item.definition || '');
+            return {
+              id: `custom-nanda-${idx}-${Date.now()}`,
+              code: item.code,
+              name: item.name,
+              definition: item.definition || 'Sin definición',
+              relatedFactors: item.relatedFactors || [],
+              defaultNocCode: bestN.code,
+              defaultNicCode: bestI.code
+            };
+          });
           setCustomNandaResults(mapped);
         } else {
           setCustomNandaResults([]);
@@ -377,7 +399,88 @@ export default function App() {
   };
 
   // Populates the workspace when selecting a NANDA diagnosis
-  const selectDiagnosisFromSearch = (diag: Diagnosis) => {
+  const selectDiagnosisFromSearch = async (diag: Diagnosis) => {
+    // Scroll right column workspace into view on mobile
+    const el = document.getElementById('consult-workspace');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+
+    const isNocInvalid = !diag.defaultNocCode || 
+      diag.defaultNocCode === "Not specified in source" || 
+      diag.defaultNocCode === "N/A" || 
+      diag.defaultNocCode === "Not Provided in Source";
+      
+    const isNicInvalid = !diag.defaultNicCode || 
+      diag.defaultNicCode === "Not specified in source" || 
+      diag.defaultNicCode === "N/A" || 
+      diag.defaultNicCode === "Not Provided in Source";
+
+    if (isNocInvalid || isNicInvalid) {
+      setIsMappingLoading(true);
+      setAnalysisResult(null); // Show skeleton loader
+      try {
+        const response = await fetch('/api/get-nanda-mapping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nandaCode: diag.code, nandaName: diag.name })
+        });
+        if (!response.ok) throw new Error('API mapping error');
+        const data = await response.json();
+        const mapping = data.mapping;
+
+        setAnalysisResult({
+          nandaCode: diag.code,
+          nandaName: diag.name,
+          definition: diag.definition,
+          relatedFactors: diagRelatedFactors(diag),
+          nocCode: mapping.nocCode,
+          nocName: mapping.nocName,
+          nocIndicators: mapping.nocIndicators || [],
+          nicCode: mapping.nicCode,
+          nicName: mapping.nicName,
+          nicActivities: mapping.nicActivities || [],
+          justification: mapping.justification || `Asociación de cuidados recomendada por la inteligencia artificial.`
+        });
+
+        setChosenFactors(diag.relatedFactors && diag.relatedFactors.length > 0 ? [diag.relatedFactors[0]] : ['Presencia de factores relacionados clínicos']);
+        if (mapping.nocIndicators) {
+          setChosenIndicators(mapping.nocIndicators.map((i: any) => i.code));
+        } else {
+          setChosenIndicators([]);
+        }
+        if (mapping.nicActivities) {
+          setChosenActivities(mapping.nicActivities.slice(0, 3));
+        } else {
+          setChosenActivities([]);
+        }
+      } catch (err) {
+        console.warn('API get-nanda-mapping failed, using local similarity fallback:', err);
+        const bestNoc = findBestNoc(diag.name, diag.definition);
+        const bestNic = findBestNic(diag.name, diag.definition);
+
+        setAnalysisResult({
+          nandaCode: diag.code,
+          nandaName: diag.name,
+          definition: diag.definition,
+          relatedFactors: diagRelatedFactors(diag),
+          nocCode: bestNoc.code,
+          nocName: bestNoc.name,
+          nocIndicators: bestNoc.indicators || [],
+          nicCode: bestNic.code,
+          nicName: bestNic.name,
+          nicActivities: bestNic.activities || [],
+          justification: `Asociación local offline mediante coincidencia de palabras clave por faltar conexión o límite de IA.`
+        });
+
+        setChosenFactors(diag.relatedFactors && diag.relatedFactors.length > 0 ? [diag.relatedFactors[0]] : ['Presencia de factores relacionados clínicos']);
+        setChosenIndicators((bestNoc.indicators || []).map(i => i.code));
+        setChosenActivities((bestNic.activities || []).slice(0, 3));
+      } finally {
+        setIsMappingLoading(false);
+      }
+      return;
+    }
+
+    // Direct match if codes are valid in static data
     const matchedNoc = NOC_OUTCOMES.find(n => n.code === diag.defaultNocCode);
     const matchedNic = NIC_INTERVENTIONS.find(n => n.code === diag.defaultNicCode);
 
@@ -386,17 +489,12 @@ export default function App() {
       nandaName: diag.name,
       definition: diag.definition,
       relatedFactors: diagRelatedFactors(diag),
-      nocCode: diag.defaultNocCode || '0403',
-      nocName: matchedNoc?.name || 'Estado respiratorio',
-      nocIndicators: matchedNoc?.indicators || [
-        { code: '040301', name: 'Frecuencia respiratoria en rango' },
-        { code: '040302', name: 'Ritmo respiratorio adecuado' }
-      ],
-      nicCode: diag.defaultNicCode || '3350',
-      nicName: matchedNic?.name || 'Monitorización respiratoria',
-      nicActivities: matchedNic?.activities || [
-        'Monitorizar la frecuencia, ritmo, profundidad y esfuerzo de las respiraciones.'
-      ],
+      nocCode: diag.defaultNocCode,
+      nocName: matchedNoc?.name || 'Resultado por definir',
+      nocIndicators: matchedNoc?.indicators || [],
+      nicCode: diag.defaultNicCode,
+      nicName: matchedNic?.name || 'Intervención por definir',
+      nicActivities: matchedNic?.activities || [],
       justification: `Seleccionado directamente del catálogo de diagnósticos NANDA [Código: ${diag.code}].`
     });
 
@@ -404,19 +502,13 @@ export default function App() {
     if (matchedNoc) {
       setChosenIndicators(matchedNoc.indicators.map(i => i.code));
     } else {
-      setChosenIndicators(['040301', '040302']);
+      setChosenIndicators([]);
     }
     if (matchedNic) {
       setChosenActivities(matchedNic.activities.slice(0, 3));
     } else {
-      setChosenActivities([
-        'Monitorizar la frecuencia, ritmo, profundidad y esfuerzo de las respiraciones.'
-      ]);
+      setChosenActivities([]);
     }
-
-    // Scroll right column workspace into view on mobile
-    const el = document.getElementById('consult-workspace');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   // Apply swapped NOC outcome
@@ -955,8 +1047,22 @@ Justificación del plan: ${analysisResult.justification}`;
               </div>
             </div>
 
+            {/* PANEL 1.5: MAPPING LOADING STATE */}
+            <div style={{ display: isMappingLoading ? "block" : "none" }}>
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-md p-10 text-center flex flex-col items-center justify-center min-h-[480px] space-y-4">
+                <div className="relative">
+                  <div className="w-14 h-14 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
+                  <Sparkles className="w-6 h-6 text-emerald-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-850">Buscando vinculación oficial con IA...</h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                  Buscando en catálogos oficiales mediante internet para encontrar y completar los resultados NOC e intervenciones NIC correspondientes a este diagnóstico.
+                </p>
+              </div>
+            </div>
+
             {/* PANEL 2: EMPTY STATE */}
-            <div style={{ display: (!analysisResult && !isAnalyzing) ? "block" : "none" }}>
+            <div style={{ display: (!analysisResult && !isAnalyzing && !isMappingLoading) ? "block" : "none" }}>
               <div className="bg-white rounded-3xl border border-slate-200/90 shadow-md p-10 text-center flex flex-col items-center justify-center min-h-[480px]">
                 <div className="w-16 h-16 bg-slate-100 rounded-3xl flex items-center justify-center mb-5 border border-slate-200/50">
                   <HeartPulse className="w-8 h-8 text-slate-400 stroke-[1.5]" />
@@ -988,7 +1094,7 @@ Justificación del plan: ${analysisResult.justification}`;
             </div>
 
             {/* PANEL 3: ACTIVE WORKSPACE CARDS */}
-            <div style={{ display: (analysisResult && !isAnalyzing) ? "block" : "none" }}>
+            <div style={{ display: (analysisResult && !isAnalyzing && !isMappingLoading) ? "block" : "none" }}>
               <div className="space-y-6">
                 
                 {/* 1. NANDA DIAGNOSIS CARD */}

@@ -1,0 +1,64 @@
+{
+  "00097": {
+    "nandaCode": "00097",
+    "nandaName": "Disminución de la participación en actividades recreativas",
+    "nocCode": "1604",
+    "nocName": "Participación en actividades de ocio",
+    "nocIndicators": [
+      {
+        "code": "160402",
+        "name": "Expresión de satisfacción con las actividades de ocio"
+      },
+      {
+        "code": "160407",
+        "name": "Identificación de opciones recreativas"
+      },
+      {
+        "code": "160408",
+        "name": "Refiere descanso con las actividades de ocio"
+      },
+      {
+        "code": "160409",
+        "name": "Participación en juegos"
+      }
+    ],
+    "nicCode": "5360",
+    "nicName": "Terapia de entretenimiento",
+    "nicActivities": [
+      "Ayudar al paciente a elegir actividades recreativas coherentes con sus capacidades físicas, psicológicas y sociales.",
+      "Ayudar a obtener los recursos necesarios para la actividad recreativa.",
+      "Incluir al paciente en la planificación de las actividades.",
+      "Fomentar la participación en actividades recreativas y de diversión que tengan por objeto disminuir la ansiedad (cantar en grupos, voleibol, tenis de mesa, paseos, natación, tareas sencillas concretas, juegos simples, tareas rutinarias, quehaceres domésticos, arreglo personal, puzles y cartas).",
+      "Comprobar la respuesta emocional, física y social a la actividad recreativa."
+    ],
+    "justification": "Vínculo oficial obtenido mediante búsqueda IA y validado con taxonomía."
+  },
+  "00298": {
+    "nandaCode": "00298",
+    "nandaName": "Síndrome de dolor crónico",
+    "nocCode": "2102",
+    "nocName": "Nivel del dolor",
+    "nocIndicators": [
+      {
+        "code": "210201",
+        "name": "Dolor referido"
+      },
+      {
+        "code": "210202",
+        "name": "Expresiones faciales de dolor"
+      },
+      {
+        "code": "210203",
+        "name": "Duración de los episodios de dolor"
+      }
+    ],
+    "nicCode": "1400",
+    "nicName": "Manejo del dolor",
+    "nicActivities": [
+      "Realizar una valoración exhaustiva del dolor que incluya localización, características, aparición, duración, frecuencia e intensidad.",
+      "Asegurar que el paciente reciba atención analgésica oportuna.",
+      "Instruir al paciente sobre la administración de analgésicos si corresponde y métodos no farmacológicos de alivio."
+    ],
+    "justification": "Vínculo oficial obtenido mediante búsqueda IA y validado con taxonomía."
+  }
+}
