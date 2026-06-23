@@ -770,12 +770,12 @@ async function startServer() {
       }
 
       if (!priceId) {
-        // Fallback for development if prices not set in env yet
-        console.warn("[Stripe] STRIPE_PRICE_MONTHLY o STRIPE_PRICE_YEARLY no configurados. Usando ID mock.");
-        priceId = planType === "yearly" ? "price_yearly_mock" : "price_monthly_mock";
+        // Fallback for development if prices not set in env yet, using test prices
+        console.warn("[Stripe] STRIPE_PRICE_MONTHLY o STRIPE_PRICE_YEARLY no configurados. Usando claves de prueba por defecto.");
+        priceId = planType === "yearly" ? "price_1TlE2c0xz7HT1EnIu9REbKJk" : "price_1TlE2c0xz7HT1EnIQfbBNANJ";
       }
 
-      const appUrl = process.env.APP_URL || "http://localhost:3000";
+      const appUrl = process.env.APP_URL || "https://consultor-enfermeria-nnn.onrender.com";
 
       // Create Stripe checkout session
       const session = await stripe.checkout.sessions.create({
@@ -819,7 +819,7 @@ async function startServer() {
         return res.status(400).json({ error: "No tienes una suscripción activa de Stripe registrada." });
       }
 
-      const appUrl = process.env.APP_URL || "http://localhost:3000";
+      const appUrl = process.env.APP_URL || "https://consultor-enfermeria-nnn.onrender.com";
 
       const session = await stripe.billingPortal.sessions.create({
         customer: customerId,
