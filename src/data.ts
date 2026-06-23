@@ -45,7 +45,7 @@ export const SERVICES: ServiceContext[] = [
   }
 ];
 
-export const DIAGNOSES: Diagnosis[] = [
+const rawDIAGNOSES: Diagnosis[] = [
   {
     "id": "nanda_00097",
     "code": "00097",
@@ -4765,6 +4765,34 @@ export const DIAGNOSES: Diagnosis[] = [
     "class": "Clase 2. Desarrollo"
   }
 ];
+
+const fixIneffTypo = (text: string): string => {
+  if (!text || typeof text !== 'string') return text;
+  
+  let fixed = text.replace(/Ineff([a-zA-Z0-9áéíóúñ\s,;.:\-\/]+?)\s(efectivo|efectiva|eficaz|efectivos|efectivas|eficaces)/gi, (match, p1, p2) => {
+    const isPlural = /es$/i.test(p2) || /s$/i.test(p2);
+    const replacement = isPlural ? 'ineficaces' : 'ineficaz';
+    return `${p1} ${replacement}`;
+  });
+
+  fixed = fixed.replace(/Ineff/gi, 'Ineficaz ');
+  fixed = fixed.replace(/ineffefectiva/gi, 'ineficaz');
+  fixed = fixed.replace(/ineffefectivo/gi, 'ineficaz');
+  fixed = fixed.replace(/\s+/g, ' ').trim();
+  
+  if (text[0] === text[0].toUpperCase() && fixed[0]) {
+    fixed = fixed[0].toUpperCase() + fixed.substring(1);
+  }
+  
+  return fixed;
+};
+
+export const DIAGNOSES: Diagnosis[] = rawDIAGNOSES.map(d => ({
+  ...d,
+  name: fixIneffTypo(d.name),
+  definition: fixIneffTypo(d.definition),
+  relatedFactors: d.relatedFactors ? d.relatedFactors.map(fixIneffTypo) : []
+}));
 
 export const NOC_OUTCOMES: NocOutcome[] = [
   {

@@ -4223,13 +4223,72 @@ Justificación del plan: ${analysisResult.justification}`;
       }
     };
 
-    const filteredNandaRaw = pesSearchNanda.trim() === ''
-      ? DIAGNOSES
-      : DIAGNOSES.filter(d => 
-          d.name.toLowerCase().includes(pesSearchNanda.toLowerCase()) || 
-          d.code.includes(pesSearchNanda) || 
-          (d.definition && d.definition.toLowerCase().includes(pesSearchNanda.toLowerCase()))
+    const getSmartSearchMatches = (query: string) => {
+      const q = query.toLowerCase().trim();
+      if (q === '') return DIAGNOSES;
+
+      const words = q.replace(/[^a-z0-9áéíóúñ]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+      if (words.length === 0) return DIAGNOSES;
+
+      const SYNONYMS: Record<string, string[]> = {
+        "gaseoso": ["gas", "gases", "respiratorio", "ventilación"],
+        "gaseosos": ["gas", "gases", "respiratorio", "ventilación"],
+        "gases": ["gaseoso", "respiratorio", "ventilación", "intercambio"],
+        "respirar": ["respiratorio", "respiratoria", "ventilación", "gases", "aéreas"],
+        "respiracion": ["respiratorio", "respiratoria", "ventilación", "gases", "aéreas"],
+        "respiración": ["respiratorio", "respiratoria", "ventilación", "gases", "aéreas"],
+        "corazon": ["cardiaco", "cardíaco", "perfusión", "tisular", "vascular"],
+        "corazón": ["cardiaco", "cardíaco", "perfusión", "tisular", "vascular"],
+        "cardiaco": ["cardíaco", "corazón", "perfusión", "vascular"],
+        "cardíaco": ["cardiaco", "corazón", "perfusión", "vascular"],
+        "orina": ["urinario", "urinaria", "eliminación"],
+        "eliminar": ["eliminación", "urinario", "gastrointestinal"],
+        "fiebre": ["hipertermia", "temperatura", "termorregulación"],
+        "calentura": ["hipertermia", "temperatura", "termorregulación"],
+        "frio": ["hipotermia", "temperatura", "termorregulación"],
+        "frío": ["hipotermia", "temperatura", "termorregulación"],
+        "comer": ["nutrición", "nutricional", "deglución", "peso"],
+        "comida": ["nutrición", "nutricional", "deglución", "peso"],
+        "gordo": ["peso", "nutricional", "sobrepeso"],
+        "flaco": ["peso", "nutricional"],
+        "triste": ["duelo", "desesperanza", "ansiedad", "afrontamiento"],
+        "miedo": ["temor", "ansiedad"],
+        "susto": ["temor", "ansiedad"],
+        "dolor": ["comodidad", "confort", "dolorido"]
+      };
+
+      const searchTerms = new Set<string>();
+      words.forEach(w => {
+        searchTerms.add(w);
+        if (w.length > 4) {
+          searchTerms.add(w.substring(0, 4));
+        }
+        if (SYNONYMS[w]) {
+          SYNONYMS[w].forEach(syn => {
+            searchTerms.add(syn);
+            if (syn.length > 4) {
+              searchTerms.add(syn.substring(0, 4));
+            }
+          });
+        }
+      });
+
+      return DIAGNOSES.filter(d => {
+        const name = d.name.toLowerCase();
+        const code = d.code;
+        const definition = d.definition ? d.definition.toLowerCase() : '';
+        const domain = d.domain ? d.domain.toLowerCase() : '';
+
+        return Array.from(searchTerms).some(term => 
+          name.includes(term) || 
+          code.includes(term) || 
+          definition.includes(term) || 
+          domain.includes(term)
         );
+      });
+    };
+
+    const filteredNandaRaw = getSmartSearchMatches(pesSearchNanda);
 
     // Deduplicate by code
     const uniqueNanda: typeof DIAGNOSES = [];
