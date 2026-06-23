@@ -4208,8 +4208,48 @@ Justificación del plan: ${analysisResult.justification}`;
         setPesResult(data.result);
         
         // Find and link best NOC & NIC based on NANDA name and definition
-        const bestNoc = findBestNoc(pesSelectedNanda.name, pesSelectedNanda.definition);
-        const bestNic = findBestNic(pesSelectedNanda.name, pesSelectedNanda.definition);
+        let bestNoc = findBestNoc(pesSelectedNanda.name, pesSelectedNanda.definition);
+        let bestNic = findBestNic(pesSelectedNanda.name, pesSelectedNanda.definition);
+
+        try {
+          const mappingRes = await fetch('/api/get-nanda-mapping', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ nandaCode: pesSelectedNanda.code, nandaName: pesSelectedNanda.name })
+          });
+
+          if (mappingRes.ok) {
+            const mapData = await mappingRes.json();
+            if (mapData && mapData.mapping) {
+              const mapping = mapData.mapping;
+              
+              // Enrich NOC definition from local outcomes if possible
+              const matchedNoc = NOC_OUTCOMES.find((n: any) => n.code === mapping.nocCode);
+              bestNoc = {
+                id: matchedNoc?.id || `noc_${mapping.nocCode}`,
+                code: mapping.nocCode,
+                name: mapping.nocName,
+                definition: matchedNoc?.definition || '',
+                indicators: mapping.nocIndicators || [],
+                domain: matchedNoc?.domain || ''
+              };
+
+              const matchedNic = NIC_INTERVENTIONS.find((n: any) => n.code === mapping.nicCode);
+              bestNic = {
+                id: matchedNic?.id || `nic_${mapping.nicCode}`,
+                code: mapping.nicCode,
+                name: mapping.nicName,
+                activities: mapping.nicActivities || []
+              };
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to fetch NANDA mapping, using local search fallback:", err);
+        }
+
         setPesSelectedNoc(bestNoc);
         setPesSelectedNic(bestNic);
       } else {
