@@ -7212,7 +7212,7 @@ Justificación del plan: ${analysisResult.justification}`;
                   <h4 className="font-extrabold text-slate-800 text-xs">Mensual</h4>
                   <p className="text-[10px] text-slate-400">Facturación mensual</p>
                   <div className="mt-2 flex items-baseline gap-1 text-slate-800">
-                    <span className="text-2xl font-extrabold">$3</span>
+                    <span className="text-2xl font-extrabold">$2.99</span>
                     <span className="text-xs font-bold text-slate-450">USD/mes</span>
                   </div>
                 </div>
@@ -7233,7 +7233,7 @@ Justificación del plan: ${analysisResult.justification}`;
                   <h4 className="font-extrabold text-slate-800 text-xs">Anual</h4>
                   <p className="text-[10px] text-indigo-600 font-bold">Ahorra 72% en el año</p>
                   <div className="mt-2 flex items-baseline gap-1 text-slate-800">
-                    <span className="text-2xl font-extrabold">$10</span>
+                    <span className="text-2xl font-extrabold">$9.99</span>
                     <span className="text-xs font-bold text-slate-450">USD/año</span>
                   </div>
                 </div>
