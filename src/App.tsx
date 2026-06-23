@@ -4705,8 +4705,8 @@ Justificación del plan: ${analysisResult.justification}`;
                         <div className="space-y-1.5">
                           <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider block font-sans">Selecciona los Indicadores NOC:</span>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 max-h-36 overflow-y-auto">
-                            {pesSelectedNoc.indicators.map((ind: string, idx: number) => {
-                              const isChecked = pesSelectedIndicators.includes(ind);
+                            {pesSelectedNoc.indicators.map((ind: { code: string; name: string }, idx: number) => {
+                              const isChecked = pesSelectedIndicators.includes(ind.code);
                               return (
                                 <label key={idx} className="flex items-start gap-2 text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
                                   <input
@@ -4714,14 +4714,14 @@ Justificación del plan: ${analysisResult.justification}`;
                                     checked={isChecked}
                                     onChange={(e) => {
                                       if (e.target.checked) {
-                                        setPesSelectedIndicators([...pesSelectedIndicators, ind]);
+                                        setPesSelectedIndicators([...pesSelectedIndicators, ind.code]);
                                       } else {
-                                        setPesSelectedIndicators(pesSelectedIndicators.filter(i => i !== ind));
+                                        setPesSelectedIndicators(pesSelectedIndicators.filter(i => i !== ind.code));
                                       }
                                     }}
                                     className="mt-0.5"
                                   />
-                                  <span>{ind}</span>
+                                  <span>{ind.code} - {ind.name}</span>
                                 </label>
                               );
                             })}
@@ -4842,8 +4842,13 @@ Justificación del plan: ${analysisResult.justification}`;
                         planText += `${pesSelectedNoc.code} - ${pesSelectedNoc.name}\n`;
                         if (pesSelectedIndicators.length > 0) {
                           planText += `Indicadores seleccionados:\n`;
-                          pesSelectedIndicators.forEach(ind => {
-                            planText += `  [x] ${ind}\n`;
+                          pesSelectedIndicators.forEach(code => {
+                            const indObj = pesSelectedNoc.indicators?.find((i: any) => i.code === code);
+                            if (indObj) {
+                              planText += `  [x] ${indObj.code} - ${indObj.name}\n`;
+                            } else {
+                              planText += `  [x] ${code}\n`;
+                            }
                           });
                         }
                         planText += `\n`;
@@ -6740,8 +6745,8 @@ Justificación del plan: ${analysisResult.justification}`;
                     <div className="pt-2 border-t border-slate-150">
                       <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Indicadores Seleccionados</span>
                       <ul className="list-disc pl-4 space-y-1 text-[10px]">
-                        {selectedPlanDetails.nocIndicators.map((ind: string, idx: number) => (
-                          <li key={idx}>{ind}</li>
+                        {selectedPlanDetails.nocIndicators.map((ind: any, idx: number) => (
+                          <li key={idx}>{typeof ind === 'object' && ind !== null ? `${ind.code} - ${ind.name}` : ind}</li>
                         ))}
                       </ul>
                     </div>
@@ -7050,8 +7055,10 @@ Justificación del plan: ${analysisResult.justification}`;
                       <div className="space-y-1.5">
                         <p className="text-[9px] font-bold text-slate-450 uppercase">Indicadores Seleccionados</p>
                         <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
-                          {selectedPlanDetails.nocIndicators.map((ind: string, idx: number) => (
-                            <li key={idx} className="leading-tight">{ind}</li>
+                          {selectedPlanDetails.nocIndicators.map((ind: any, idx: number) => (
+                            <li key={idx} className="leading-tight">
+                              {typeof ind === 'object' && ind !== null ? `${ind.code} - ${ind.name}` : ind}
+                            </li>
                           ))}
                         </ul>
                       </div>
