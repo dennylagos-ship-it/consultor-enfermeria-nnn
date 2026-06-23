@@ -1395,6 +1395,109 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
     }
   });
 
+  // POST: Generate structured NANDA diagnosis using PES format and rules
+  app.post("/api/ai/generate-pes", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
+    const { nandaLabel, diagnosisType, etiology, symptoms } = req.body;
+
+    if (!nandaLabel || !diagnosisType) {
+      return res.status(400).json({ error: "Nanda label and diagnosis type are required" });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Helper fallback
+    const buildLocalFallback = () => {
+      let formattedDiagnosis = "";
+      if (diagnosisType === "real") {
+        formattedDiagnosis = `${nandaLabel} Relacionado con (R/C) ${etiology || "[Etiología no provista]"} Manifestado por (M/P) ${symptoms || "[Signos/Síntomas no provistos]"}`;
+      } else if (diagnosisType === "risk") {
+        formattedDiagnosis = `${nandaLabel} Relacionado con (R/C) ${etiology || "[Factor de riesgo no provisto]"}`;
+      } else {
+        formattedDiagnosis = `${nandaLabel} Manifestado por (M/P) ${symptoms || "[Deseo o conductas de mejora no provistos]"}`;
+      }
+
+      return {
+        formattedDiagnosis,
+        problem: nandaLabel,
+        etiology: etiology || "No provista",
+        signsSymptoms: symptoms || "No provistos",
+        pedagogicalAdvice: "Nota: Este diagnóstico se ha estructurado de forma local offline. Para obtener una corrección y terminología clínica pulida por IA con consejos de enfermero docente, asegúrate de activar y configurar la clave de Gemini AI."
+      };
+    };
+
+    if (!isValidApiKey(apiKey)) {
+      return res.json({ result: buildLocalFallback(), isFallback: true });
+    }
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          }
+        }
+      });
+
+      const promptText = `Actúas como un enfermero docente experto en la taxonomía NANDA-I. Tu tarea es ayudarme a redactar y analizar diagnósticos de enfermería utilizando de forma estricta la estructura PES (Problema, Etiología, Signos/Síntomas).
+
+Debes seguir de forma estricta las siguientes reglas de redacción:
+1. Para Diagnósticos Reales (type: "real"): Une los componentes usando los conectores estándar exactos: "[Problema] Relacionado con (R/C) [Etiología] Manifestado por (M/P) [Signos y Síntomas]".
+2. Para Diagnósticos de Riesgo (type: "risk"): Usa únicamente el problema y su factor de riesgo: "[Problema de riesgo] Relacionado con (R/C) [Factor de riesgo]". No incluyas "Manifestado por" ni menciones de signos o síntomas, ya que el problema aún no ocurre.
+3. Para Diagnósticos de Promoción de la Salud (type: "promotion"): Usa únicamente el problema de bienestar y las conductas de mejora: "[Problema de bienestar] Manifestado por (M/P) [Deseo o conductas de mejora]". No incluyas "Relacionado con (R/C)".
+
+Datos del paciente / diagnóstico provistos por el usuario:
+- Tipo de diagnóstico solicitado: "${diagnosisType}"
+- Problema / Etiqueta NANDA: "${nandaLabel}"
+- Etiología / Factor de riesgo (si aplica): "${etiology || ""}"
+- Signos y Síntomas / Manifestaciones / Conductas de mejora (si aplica): "${symptoms || ""}"
+
+Tu tarea es:
+1. Redactar el diagnóstico de enfermería final completo de forma impecable y profesional en español utilizando los conectores exactos (R/C) y (M/P) según corresponda. Si el usuario ingresó etiologías o síntomas redactados de forma informal o poco clínica (ej: "le duele el pecho" o "está triste"), tradúcelos a lenguaje enfermero profesional (ej: "dolor torácico", "llanto frecuente" o "verbalización de sentimientos de desesperanza").
+2. Identificar el Problema (P), la Etiología/Factor de riesgo (E) y los Signos/Síntomas (S) de forma aislada.
+3. Dar un consejo o justificación pedagógica de enfermero docente (2-3 líneas) explicando por qué se redacta así según la NANDA-I.
+
+Devuelve la respuesta estrictamente en este formato JSON:
+{
+  "formattedDiagnosis": "...",
+  "problem": "...",
+  "etiology": "...",
+  "signsSymptoms": "...",
+  "pedagogicalAdvice": "..."
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              formattedDiagnosis: { type: Type.STRING },
+              problem: { type: Type.STRING },
+              etiology: { type: Type.STRING },
+              signsSymptoms: { type: Type.STRING },
+              pedagogicalAdvice: { type: Type.STRING }
+            },
+            required: ["formattedDiagnosis", "problem", "etiology", "signsSymptoms", "pedagogicalAdvice"]
+          }
+        }
+      });
+
+      const responseText = response.text || "";
+      const parsed = JSON.parse(responseText.trim());
+      res.json({ result: parsed, isFallback: false });
+    } catch (err: any) {
+      console.warn("[PES AI Generation Error] Fallback a local:", err.message || err);
+      res.json({ result: buildLocalFallback(), isFallback: true, errorMsg: err.message });
+    }
+  });
+
   // Vite development integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

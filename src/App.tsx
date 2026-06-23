@@ -112,7 +112,7 @@ export default function App() {
   const [useAiNic, setUseAiNic] = useState<boolean>(false);
 
   // Premium Tab Navigation & Saved Plans
-  const [activeTab, setActiveTab] = useState<'consultant' | 'saved_plans' | 'calculators'>('consultant');
+  const [activeTab, setActiveTab] = useState<'consultant' | 'saved_plans' | 'calculators' | 'pes'>('consultant');
   const [savedPlans, setSavedPlans] = useState<any[]>([]);
   const [plansLoading, setPlansLoading] = useState<boolean>(false);
   const [patientName, setPatientName] = useState<string>('');
@@ -132,6 +132,24 @@ export default function App() {
   const [apgarReflex, setApgarReflex] = useState<number>(2);
   const [apgarTone, setApgarTone] = useState<number>(2);
   const [apgarResp, setApgarResp] = useState<number>(2);
+
+  // PES Builder states
+  const [pesType, setPesType] = useState<'real' | 'risk' | 'promotion'>('real');
+  const [pesSearchNanda, setPesSearchNanda] = useState<string>('');
+  const [pesSelectedNanda, setPesSelectedNanda] = useState<Diagnosis | null>(null);
+  const [pesEtiology, setPesEtiology] = useState<string>('');
+  const [pesSymptoms, setPesSymptoms] = useState<string>('');
+  const [pesResult, setPesResult] = useState<{
+    formattedDiagnosis: string;
+    problem: string;
+    etiology: string;
+    signsSymptoms: string;
+    pedagogicalAdvice: string;
+  } | null>(null);
+  const [pesLoading, setPesLoading] = useState<boolean>(false);
+  const [pesCopied, setPesCopied] = useState<boolean>(false);
+  const [pesError, setPesError] = useState<string>('');
+  const [showNandaDropdown, setShowNandaDropdown] = useState<boolean>(false);
 
   // Silverman-Andersen states
   const [silvermanThorax, setSilvermanThorax] = useState<number>(0);
@@ -4139,6 +4157,382 @@ Justificación del plan: ${analysisResult.justification}`;
     );
   };
 
+  const handleGeneratePes = async () => {
+    if (!pesSelectedNanda) {
+      setPesError("Por favor, selecciona una etiqueta NANDA.");
+      return;
+    }
+    setPesLoading(true);
+    setPesError('');
+    setPesResult(null);
+
+    try {
+      const response = await fetch('/api/ai/generate-pes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          nandaLabel: `NANDA ${pesSelectedNanda.code}: ${pesSelectedNanda.name}`,
+          diagnosisType: pesType,
+          etiology: pesEtiology,
+          symptoms: pesSymptoms
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPesResult(data.result);
+      } else {
+        const errData = await response.json();
+        setPesError(errData.message || "Error al estructurar el diagnóstico.");
+      }
+    } catch (err) {
+      console.error("Error generating PES:", err);
+      setPesError("Error de conexión al servicio de IA.");
+    } finally {
+      setPesLoading(false);
+    }
+  };
+
+  const renderPesBuilder = () => {
+    const getLivePreview = () => {
+      if (!pesSelectedNanda) return "Selecciona una etiqueta NANDA para ver la estructura básica...";
+      const problemStr = `NANDA ${pesSelectedNanda.code}: ${pesSelectedNanda.name}`;
+      const etiologyStr = pesEtiology.trim() || "[Etiología / Factor de riesgo]";
+      const symptomsStr = pesSymptoms.trim() || "[Características definitorias / Signos y síntomas]";
+      
+      if (pesType === 'real') {
+        return `${problemStr} Relacionado con (R/C) ${etiologyStr} Manifestado por (M/P) ${symptomsStr}`;
+      } else if (pesType === 'risk') {
+        return `${problemStr} Relacionado con (R/C) ${etiologyStr}`;
+      } else {
+        return `${problemStr} Manifestado por (M/P) ${symptomsStr}`;
+      }
+    };
+
+    const filteredNanda = pesSearchNanda.trim() === ''
+      ? DIAGNOSES.slice(0, 15)
+      : DIAGNOSES.filter(d => 
+          d.name.toLowerCase().includes(pesSearchNanda.toLowerCase()) || 
+          d.code.includes(pesSearchNanda) || 
+          (d.definition && d.definition.toLowerCase().includes(pesSearchNanda.toLowerCase()))
+        );
+
+    return (
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Form Editor */}
+        <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 space-y-6 flex flex-col">
+          <div>
+            <h2 className="text-base font-extrabold text-slate-800">Estructurador PES de Diagnósticos</h2>
+            <p className="text-xs text-slate-500 mt-0.5 font-sans">Ayuda pedagógica para redactar diagnósticos NANDA-I oficiales usando Problema, Etiología y Signos/Síntomas.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold text-slate-455 uppercase block font-sans">Tipo de Diagnóstico</label>
+            <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+              {[
+                { id: 'real', name: 'Real (Focalizado)' },
+                { id: 'risk', name: 'De Riesgo' },
+                { id: 'promotion', name: 'Promoción de la Salud' }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setPesType(t.id as any);
+                    setPesResult(null);
+                    setPesError('');
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-sans ${
+                    pesType === t.id
+                      ? 'bg-white text-indigo-650 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2 relative">
+            <label className="text-[11px] font-bold text-slate-455 uppercase block font-sans">1. Diagnóstico NANDA (Problema)</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar diagnóstico por nombre o código (ej: 00032)..."
+                value={pesSearchNanda}
+                onChange={(e) => {
+                  setPesSearchNanda(e.target.value);
+                  setShowNandaDropdown(true);
+                }}
+                onFocus={() => setShowNandaDropdown(true)}
+                className="w-full pl-3 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs bg-slate-50/50 font-sans"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3.5" />
+            </div>
+
+            {showNandaDropdown && (
+              <div className="absolute z-30 left-0 right-0 top-full mt-1.5 bg-white border border-slate-200/90 shadow-2xl rounded-2xl max-h-60 overflow-y-auto divide-y divide-slate-150">
+                {filteredNanda.length === 0 ? (
+                  <p className="p-4 text-xs text-slate-400 text-center font-sans">No se encontraron diagnósticos.</p>
+                ) : (
+                  filteredNanda.map(d => (
+                    <button
+                      key={d.id}
+                      onClick={() => {
+                        setPesSelectedNanda(d);
+                        setPesSearchNanda(`NANDA ${d.code}: ${d.name}`);
+                        setShowNandaDropdown(false);
+                        setPesResult(null);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex flex-col gap-0.5 cursor-pointer font-sans"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-extrabold text-slate-800">{d.name}</span>
+                        <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded">Cód. {d.code}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-450 line-clamp-1">{d.definition}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+
+            {pesSelectedNanda && (
+              <div className="bg-indigo-50/20 border border-indigo-150 rounded-2xl p-4.5 space-y-2 mt-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-indigo-100 text-indigo-850 rounded">DIAGNÓSTICO SELECCIONADO</span>
+                    <h4 className="text-xs font-extrabold text-indigo-950 mt-1 font-sans">Cód. {pesSelectedNanda.code} - {pesSelectedNanda.name}</h4>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setPesSelectedNanda(null);
+                      setPesSearchNanda('');
+                      setPesResult(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] leading-relaxed text-indigo-900/80 font-sans">{pesSelectedNanda.definition}</p>
+                {pesSelectedNanda.domain && (
+                  <p className="text-[9px] font-bold text-indigo-700/60 uppercase tracking-wider font-mono">Dominio: {pesSelectedNanda.domain}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {(pesType === 'real' || pesType === 'risk') && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-slate-455 uppercase block font-sans">
+                  {pesType === 'real' ? '2. Etiología (Relacionado con - R/C)' : '2. Factor de Riesgo (Relacionado con - R/C)'}
+                </label>
+                <span className="text-[10px] text-slate-400 italic font-sans">Causa primaria o factor de riesgo</span>
+              </div>
+              <textarea
+                placeholder={pesType === 'real' ? "Ej: desequilibrio entre el aporte y la demanda de oxígeno, alteración de la perfusión arterial..." : "Ej: deshidratación, inmovilidad física, extremos de edad..."}
+                value={pesEtiology}
+                onChange={(e) => {
+                  setPesEtiology(e.target.value);
+                  setPesResult(null);
+                }}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-slate-50/50 resize-none font-sans"
+              />
+
+              {pesSelectedNanda && pesSelectedNanda.relatedFactors && pesSelectedNanda.relatedFactors.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-sans">Factores NANDA Sugeridos (Haz clic para rellenar):</span>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 border border-slate-100 rounded-xl bg-slate-50/30">
+                    {pesSelectedNanda.relatedFactors.map((factor, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setPesEtiology(factor);
+                          setPesResult(null);
+                        }}
+                        className="text-[10px] bg-white hover:bg-slate-100 border border-slate-200/80 hover:border-slate-350 text-slate-650 px-2 py-1 rounded-lg transition-all text-left truncate max-w-full cursor-pointer font-sans"
+                        title={factor}
+                      >
+                        {factor}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(pesType === 'real' || pesType === 'promotion') && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[11px] font-bold text-slate-455 uppercase block font-sans">
+                  {pesType === 'real' ? '3. Características Definitorias (Manifestado por - M/P)' : '2. Conductas de Mejora (Manifestado por - M/P)'}
+                </label>
+                <span className="text-[10px] text-slate-400 italic font-sans">Signos, síntomas u objetivaciones observables</span>
+              </div>
+              <textarea
+                placeholder={pesType === 'real' ? "Ej: fatiga, disnea de esfuerzo, frecuencia cardíaca anormal..." : "Ej: expresa deseos de mejorar el estado nutricional, verbaliza interés en pautas de ejercicio..."}
+                value={pesSymptoms}
+                onChange={(e) => {
+                  setPesSymptoms(e.target.value);
+                  setPesResult(null);
+                }}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-slate-50/50 resize-none font-sans"
+              />
+            </div>
+          )}
+
+          {pesError && (
+            <div className="bg-rose-50 border border-rose-150 rounded-2xl p-3 text-xs text-rose-600 flex items-center gap-2 font-sans">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{pesError}</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleGeneratePes}
+            disabled={pesLoading || !pesSelectedNanda}
+            className={`w-full py-3.5 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/10 active:scale-[0.99] transition-all cursor-pointer font-sans ${
+              !pesSelectedNanda
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                : 'bg-indigo-650 hover:bg-indigo-700 text-white hover:shadow-indigo-600/20'
+            }`}
+          >
+            {pesLoading ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Analizando y Estructurando...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Estructurar y Pulir Diagnóstico con IA</span>
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Right Column: Previews & Results */}
+        <div className="lg:col-span-6 space-y-6">
+          <div className="bg-slate-50 border border-slate-200 rounded-3xl p-6 space-y-4">
+            <div>
+              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-slate-200 text-slate-700 rounded font-sans">ESTRUCTURACIÓN BÁSICA (EN TIEMPO REAL)</span>
+              <h3 className="text-sm font-extrabold text-slate-800 mt-1 font-sans">Esquema del Diagnóstico</h3>
+            </div>
+            <div className="bg-white border border-slate-200/80 p-4.5 rounded-2xl min-h-20 shadow-inner flex items-center">
+              <p className="text-xs text-slate-650 leading-relaxed font-sans select-all italic w-full">
+                {getLivePreview()}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(getLivePreview());
+                  alert("Diagnóstico básico copiado.");
+                }}
+                disabled={!pesSelectedNanda}
+                className="flex-1 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed text-slate-650 font-bold rounded-xl text-[11px] flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copiar Fórmula Básica
+              </button>
+            </div>
+          </div>
+
+          {pesLoading && (
+            <div className="bg-indigo-50/20 border border-indigo-150 rounded-3xl p-8 flex flex-col items-center justify-center space-y-3 min-h-60 font-sans">
+              <RefreshCw className="w-8 h-8 text-indigo-650 animate-spin" />
+              <p className="text-xs font-bold text-indigo-900">El enfermero docente está estructurando el diagnóstico...</p>
+              <p className="text-[10px] text-slate-500 text-center">Traduciendo términos a lenguaje técnico y ordenando las variables NANDA según la estructura PES.</p>
+            </div>
+          )}
+
+          {pesResult && (
+            <div className="space-y-6">
+              <div className="bg-indigo-650 text-white rounded-3xl p-6 space-y-4 shadow-xl shadow-indigo-650/15">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-extrabold tracking-wider bg-white/20 text-indigo-50 px-2 py-0.5 rounded uppercase font-mono">DIAGNÓSTICO REDACTADO POR IA</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(pesResult.formattedDiagnosis);
+                      setPesCopied(true);
+                      setTimeout(() => setPesCopied(false), 2000);
+                    }}
+                    className="p-1.5 hover:bg-white/10 rounded-xl transition-all cursor-pointer text-white"
+                  >
+                    {pesCopied ? <CopyCheck className="w-4 h-4 text-emerald-350" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-sm font-extrabold leading-relaxed font-sans select-all">
+                  {pesResult.formattedDiagnosis}
+                </p>
+                {pesCopied && (
+                  <p className="text-[10px] text-emerald-350 font-bold text-right font-sans">¡Copiado con éxito!</p>
+                )}
+              </div>
+
+              <div className="bg-white border border-slate-200/90 rounded-3xl p-6 space-y-4 shadow-md font-sans">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 font-sans">Desglose PES Académico</h3>
+                  <p className="text-xs text-slate-500 font-sans">Componentes individuales identificados en el diagnóstico.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="p-3.5 bg-rose-50/50 border border-rose-100 rounded-2xl flex gap-3 items-start">
+                    <div className="w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-black flex items-center justify-center shrink-0">P</div>
+                    <div>
+                      <span className="text-[10px] font-bold text-rose-800 uppercase block font-sans">Problema (Etiqueta NANDA)</span>
+                      <p className="text-xs text-slate-700 leading-normal mt-0.5 font-sans">{pesResult.problem}</p>
+                    </div>
+                  </div>
+
+                  {pesType !== 'promotion' && (
+                    <div className="p-3.5 bg-amber-50/50 border border-amber-100 rounded-2xl flex gap-3 items-start">
+                      <div className="w-6 h-6 rounded-full bg-amber-500 text-slate-900 text-xs font-black flex items-center justify-center shrink-0 font-sans animate-none">E</div>
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-800 uppercase block font-sans">
+                          {pesType === 'risk' ? 'Factor de Riesgo (Etiología)' : 'Etiología (Relacionado con)'}
+                        </span>
+                        <p className="text-xs text-slate-700 leading-normal mt-0.5 font-sans">{pesResult.etiology}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {pesType !== 'risk' && (
+                    <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex gap-3 items-start">
+                      <div className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center shrink-0 font-sans">S</div>
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase block font-sans">
+                          {pesType === 'promotion' ? 'Conductas de Mejora (Manifestado por)' : 'Signos y Síntomas (Manifestado por)'}
+                        </span>
+                        <p className="text-xs text-slate-700 leading-normal mt-0.5 font-sans">{pesResult.signsSymptoms}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-amber-50/60 border border-amber-150 rounded-3xl p-6 space-y-3 font-sans">
+                <div className="flex items-center gap-2 text-amber-850">
+                  <span className="text-[10px] font-extrabold tracking-wider bg-amber-100 px-2 py-0.5 rounded uppercase font-mono">CONSEJO DEL DOCENTE DE ENFERMERÍA</span>
+                </div>
+                <p className="text-xs italic leading-relaxed text-amber-900">
+                  "{pesResult.pedagogicalAdvice}"
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  };
+
   return (
 
     <ErrorBoundary>
@@ -4577,6 +4971,28 @@ Justificación del plan: ${analysisResult.justification}`;
             <Activity className="w-4 h-4 shrink-0" />
             <span className="hidden sm:inline">Calculadoras Clínicas</span>
             <span className="sm:hidden">Calculadoras</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (subscriptionStatus !== 'active') {
+                setShowPaywallModal(true);
+                return;
+              }
+              setActiveTab('pes');
+            }}
+            className={`flex-1 sm:flex-none justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${
+              activeTab === 'pes'
+                ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Estructurador PES (NANDA-I)</span>
+            <span className="sm:hidden">Redactor PES</span>
+            {subscriptionStatus !== 'active' && (
+              <Sparkles className="w-3 h-3 text-amber-500 absolute -top-1 -right-1" />
+            )}
           </button>
         </div>
 
@@ -5746,6 +6162,8 @@ Justificación del plan: ${analysisResult.justification}`;
           </main>
         );
       })()}
+
+      {activeTab === 'pes' && renderPesBuilder()}
 
       {/* PRINT VIEW (Active Workspace) */}
       {analysisResult && (
