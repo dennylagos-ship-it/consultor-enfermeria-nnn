@@ -4,6 +4,15 @@
  */
 
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { auth, db, isFirebaseMock } from './firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  User
+} from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { 
   HeartPulse, 
   ListChecks, 
@@ -19,10 +28,17 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  FileText
+  FileText,
+  LogOut,
+  Activity,
+  Trash2,
+  Printer,
+  Calculator,
+  Lock
 } from 'lucide-react';
 import { Diagnosis, NocOutcome, NicIntervention } from './types';
 import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, NANDA_DOMAINS, findBestNoc, findBestNic } from './data';
+import techNurseImg from './assets/images/tech_nurse.png';
 
 // Class Component Error Boundary to catch and display any React runtime crashes on screen
 interface ErrorBoundaryProps {
@@ -84,6 +100,399 @@ export default function App() {
   // Toggle landing page with instructions
   const [showLanding, setShowLanding] = useState<boolean>(true);
 
+  // Auth & Subscription States
+  const [user, setUser] = useState<any | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'free' | 'active' | 'canceled' | 'past_due'>('free');
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [idToken, setIdToken] = useState<string>('');
+
+  // AI Toggle States (Premium features)
+  const [useAiNanda, setUseAiNanda] = useState<boolean>(false);
+  const [useAiNoc, setUseAiNoc] = useState<boolean>(false);
+  const [useAiNic, setUseAiNic] = useState<boolean>(false);
+
+  // Premium Tab Navigation & Saved Plans
+  const [activeTab, setActiveTab] = useState<'consultant' | 'saved_plans' | 'calculators'>('consultant');
+  const [savedPlans, setSavedPlans] = useState<any[]>([]);
+  const [plansLoading, setPlansLoading] = useState<boolean>(false);
+  const [patientName, setPatientName] = useState<string>('');
+  const [savingPlan, setSavingPlan] = useState<boolean>(false);
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState<any | null>(null);
+  const [soapieGenerating, setSoapieGenerating] = useState<boolean>(false);
+  const [soapieResult, setSoapieResult] = useState<string>('');
+
+  // Glasgow Scale states
+  const [glasgowOcular, setGlasgowOcular] = useState<number>(4);
+  const [glasgowVerbal, setGlasgowVerbal] = useState<number>(5);
+  const [glasgowMotor, setGlasgowMotor] = useState<number>(6);
+
+  // APGAR Scale states
+  const [apgarColor, setApgarColor] = useState<number>(2);
+  const [apgarPulse, setApgarPulse] = useState<number>(2);
+  const [apgarReflex, setApgarReflex] = useState<number>(2);
+  const [apgarTone, setApgarTone] = useState<number>(2);
+  const [apgarResp, setApgarResp] = useState<number>(2);
+
+  // Silverman-Andersen states
+  const [silvermanThorax, setSilvermanThorax] = useState<number>(0);
+  const [silvermanRetraction, setSilvermanRetraction] = useState<number>(0);
+  const [silvermanXiphoid, setSilvermanXiphoid] = useState<number>(0);
+  const [silvermanNasal, setSilvermanNasal] = useState<number>(0);
+  const [silvermanGrunt, setSilvermanGrunt] = useState<number>(0);
+
+  // BMI states
+  const [bmiWeight, setBmiWeight] = useState<string>('70');
+  const [bmiHeight, setBmiHeight] = useState<string>('170');
+
+  // Gestational Age states
+  const [furDate, setFurDate] = useState<string>('');
+
+  // Drug Dosage states
+  const [dosePrescribed, setDosePrescribed] = useState<string>('');
+  const [doseConcentration, setDoseConcentration] = useState<string>('');
+  const [doseDiluent, setDoseDiluent] = useState<string>('');
+
+  // ABG states
+  const [abgPh, setAbgPh] = useState<string>('7.40');
+  const [abgPco2, setAbgPco2] = useState<string>('40');
+  const [abgHco3, setAbgHco3] = useState<string>('24');
+
+  // Braden Scale states
+  const [bradenSensory, setBradenSensory] = useState<number>(4);
+  const [bradenMoisture, setBradenMoisture] = useState<number>(4);
+  const [bradenActivity, setBradenActivity] = useState<number>(4);
+  const [bradenMobility, setBradenMobility] = useState<number>(4);
+  const [bradenNutrition, setBradenNutrition] = useState<number>(4);
+  const [bradenFriction, setBradenFriction] = useState<number>(3);
+
+  // Downton Scale states
+  const [downtonFalls, setDowntonFalls] = useState<number>(0);
+  const [downtonMeds, setDowntonMeds] = useState<number>(0);
+  const [downtonSensory, setDowntonSensory] = useState<number>(0);
+  const [downtonMental, setDowntonMental] = useState<number>(0);
+  const [downtonGait, setDowntonGait] = useState<number>(0);
+
+  // Selected calculator subtab
+  const [activeCalculator, setActiveCalculator] = useState<'glasgow' | 'apgar' | 'silverman' | 'bmi' | 'fpp' | 'dose' | 'abg' | 'braden' | 'downton'>('glasgow');
+
+  // Auth Modal States
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authError, setAuthError] = useState<string>('');
+
+  // Paywall Modal State
+  const [showPaywallModal, setShowPaywallModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isFirebaseMock) {
+      setUser({ email: 'mock@enfermeria.com', uid: 'mock_uid' });
+      setSubscriptionStatus('active'); // active in mock mode for simple local testing
+      setUseAiNanda(true);
+      setUseAiNoc(true);
+      setUseAiNic(true);
+      setAuthLoading(false);
+      return;
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        try {
+          const token = await currentUser.getIdToken();
+          setIdToken(token);
+
+          // Real-time Firestore sync
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              const status = data.subscriptionStatus || 'free';
+              setSubscriptionStatus(status);
+              if (status !== 'active') {
+                setUseAiNanda(false);
+                setUseAiNoc(false);
+                setUseAiNic(false);
+              } else {
+                setUseAiNanda(true);
+                setUseAiNoc(true);
+                setUseAiNic(true);
+              }
+            } else {
+              setSubscriptionStatus('free');
+              setUseAiNanda(false);
+              setUseAiNoc(false);
+              setUseAiNic(false);
+            }
+            setAuthLoading(false);
+          }, (err) => {
+            console.error("Firestore user doc snapshot error:", err);
+            setSubscriptionStatus('free');
+            setUseAiNanda(false);
+            setUseAiNoc(false);
+            setUseAiNic(false);
+            setAuthLoading(false);
+          });
+
+          return () => unsubscribeDoc();
+        } catch (err) {
+          console.error("Error getting ID token:", err);
+          setAuthLoading(false);
+        }
+      } else {
+        setSubscriptionStatus('free');
+        setIdToken('');
+        setUseAiNanda(false);
+        setUseAiNoc(false);
+        setUseAiNic(false);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      if (authMode === 'login') {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      } else {
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+      }
+      setShowAuthModal(false);
+      setAuthEmail('');
+      setAuthPassword('');
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      let msg = "Error al autenticar. Por favor revisa tus credenciales.";
+      if (err.code === "auth/email-already-in-use") {
+        msg = "El correo electrónico ya está registrado.";
+      } else if (err.code === "auth/invalid-credential") {
+        msg = "Correo electrónico o contraseña incorrectos.";
+      } else if (err.code === "auth/weak-password") {
+        msg = "La contraseña debe tener al menos 6 caracteres.";
+      } else if (err.code === "auth/invalid-email") {
+        msg = "El formato de correo electrónico no es válido.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        msg = "El método de autenticación por Correo/Contraseña no está activado en tu consola de Firebase. Debes habilitarlo.";
+      }
+      setAuthError(msg);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setAnalysisResult(null);
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
+  };
+
+  const handleSubscribe = async (planType: 'monthly' | 'yearly') => {
+    if (!user) {
+      setAuthMode('register');
+      setShowAuthModal(true);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ planType })
+      });
+
+      if (response.status === 401) {
+        setShowAuthModal(true);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Checkout session request failed");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Stripe subscribe error:", err);
+      alert("Error al iniciar el pago de suscripción.");
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const response = await fetch('/api/stripe/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+
+      if (response.status === 401) {
+        setShowAuthModal(true);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Portal session request failed");
+      }
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Stripe portal error:", err);
+      alert("No se pudo abrir el panel de facturación.");
+    }
+  };
+
+  const fetchSavedPlans = async () => {
+    if (!user) return;
+    setPlansLoading(true);
+    try {
+      const response = await fetch('/api/plans', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSavedPlans(data.plans || []);
+      }
+    } catch (err) {
+      console.error("Error fetching saved plans:", err);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (subscriptionStatus !== 'active') {
+      setShowPaywallModal(true);
+      return;
+    }
+    if (!analysisResult) {
+      alert("Por favor selecciona un diagnóstico NANDA primero.");
+      return;
+    }
+
+    setSavingPlan(true);
+    try {
+      const response = await fetch('/api/plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          patientName: patientName || "Paciente Anónimo",
+          nandaCode: analysisResult.nandaCode,
+          nandaName: analysisResult.nandaName,
+          nocCode: analysisResult.nocCode || "",
+          nocName: analysisResult.nocName || "",
+          nocIndicators: chosenIndicators.map(code => {
+            const indObj = analysisResult.nocIndicators?.find((ind: any) => ind.code === code);
+            return indObj ? `${indObj.name} (CÓD: ${indObj.code})` : code;
+          }),
+          nicCode: analysisResult.nicCode || "",
+          nicName: analysisResult.nicName || "",
+          nicActivities: chosenActivities,
+          evolutionNote: clinicalNote || "",
+        })
+      });
+
+      if (response.ok) {
+        alert("¡Plan de cuidados guardado con éxito!");
+        setPatientName('');
+        fetchSavedPlans();
+      } else {
+        const errData = await response.json();
+        alert("Error al guardar el plan: " + (errData.error || "Error desconocido"));
+      }
+    } catch (err: any) {
+      console.error("Error saving plan:", err);
+      alert("Fallo al guardar el plan de cuidados: " + (err.message || err));
+    } finally {
+      setSavingPlan(false);
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este plan de cuidados guardado?")) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/plans/${planId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      if (response.ok) {
+        setSavedPlans(prev => prev.filter(p => p.id !== planId));
+        if (selectedPlanDetails?.id === planId) {
+          setSelectedPlanDetails(null);
+        }
+      } else {
+        alert("No se pudo eliminar el plan.");
+      }
+    } catch (err) {
+      console.error("Error deleting plan:", err);
+      alert("Error al intentar eliminar el plan.");
+    }
+  };
+
+  const handleGenerateSoapie = async () => {
+    if (!analysisResult) return;
+    setSoapieGenerating(true);
+    setSoapieResult('');
+    try {
+      const response = await fetch('/api/ai/generate-soapie', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          nandaName: analysisResult.nandaName,
+          nocName: analysisResult.nocName || "Sin NOC definido",
+          nicName: analysisResult.nicName || "Sin NIC definido",
+          activities: chosenActivities,
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSoapieResult(data.soapie);
+        setClinicalNote(data.soapie);
+      } else {
+        alert("No se pudo generar la nota SOAPIE.");
+      }
+    } catch (err) {
+      console.error("Error generating SOAPIE:", err);
+      alert("Error al contactar al servicio de SOAPIE.");
+    } finally {
+      setSoapieGenerating(false);
+    }
+  };
+
   // Scroll to top when switching between landing/instruction screen and main workspace
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -113,19 +522,16 @@ export default function App() {
 
   // Unified global NANDA Search States (left column)
   const [nandaSearchQuery, setNandaSearchQuery] = useState<string>('');
-  const [useAiNanda, setUseAiNanda] = useState<boolean>(true);
   const [isNandaLoading, setIsNandaLoading] = useState<boolean>(false);
   const [customNandaResults, setCustomNandaResults] = useState<Diagnosis[] | null>(null);
 
   // Inline search states inside the NOC Card (right column)
   const [inlineNocSearchQuery, setInlineNocSearchQuery] = useState<string>('');
-  const [useAiNoc, setUseAiNoc] = useState<boolean>(true);
   const [isInlineNocLoading, setIsInlineNocLoading] = useState<boolean>(false);
   const [inlineNocResults, setInlineNocResults] = useState<NocOutcome[] | null>(null);
 
   // Inline search states inside the NIC Card (right column)
   const [inlineNicSearchQuery, setInlineNicSearchQuery] = useState<string>('');
-  const [useAiNic, setUseAiNic] = useState<boolean>(true);
   const [isInlineNicLoading, setIsInlineNicLoading] = useState<boolean>(false);
   const [inlineNicResults, setInlineNicResults] = useState<NicIntervention[] | null>(null);
 
@@ -210,6 +616,11 @@ export default function App() {
     const promptToUse = customPrompt || symptomInput;
     if (!promptToUse.trim()) return;
 
+    if (subscriptionStatus !== 'active') {
+      setShowPaywallModal(true);
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisResult(null);
     setCopiedNote(false);
@@ -224,11 +635,23 @@ export default function App() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({ symptoms: promptToUse })
       });
 
       clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        setShowAuthModal(true);
+        return;
+      }
+      if (response.status === 403) {
+        setShowPaywallModal(true);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('API server error response');
@@ -273,14 +696,33 @@ export default function App() {
       setCustomNandaResults(null);
       return;
     }
+
+    if (useAiNanda && subscriptionStatus !== 'active') {
+      setShowPaywallModal(true);
+      return;
+    }
+
     setIsNandaLoading(true);
     try {
       if (useAiNanda) {
         const response = await fetch('/api/search-taxonomy', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
           body: JSON.stringify({ query: nandaSearchQuery, type: 'nanda' })
         });
+
+        if (response.status === 401) {
+          setShowAuthModal(true);
+          return;
+        }
+        if (response.status === 403) {
+          setShowPaywallModal(true);
+          return;
+        }
+
         if (!response.ok) throw new Error('API search error');
         const data = await response.json();
         if (data.results) {
@@ -327,14 +769,33 @@ export default function App() {
   // Inline NOC search execution
   const handleInlineNocSearch = async () => {
     if (!inlineNocSearchQuery.trim()) return;
+
+    if (useAiNoc && subscriptionStatus !== 'active') {
+      setShowPaywallModal(true);
+      return;
+    }
+
     setIsInlineNocLoading(true);
     try {
       if (useAiNoc) {
         const response = await fetch('/api/search-taxonomy', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
           body: JSON.stringify({ query: inlineNocSearchQuery, type: 'noc' })
         });
+
+        if (response.status === 401) {
+          setShowAuthModal(true);
+          return;
+        }
+        if (response.status === 403) {
+          setShowPaywallModal(true);
+          return;
+        }
+
         if (!response.ok) throw new Error('API NOC search error');
         const data = await response.json();
         setInlineNocResults(data.results || []);
@@ -364,14 +825,33 @@ export default function App() {
   // Inline NIC search execution
   const handleInlineNicSearch = async () => {
     if (!inlineNicSearchQuery.trim()) return;
+
+    if (useAiNic && subscriptionStatus !== 'active') {
+      setShowPaywallModal(true);
+      return;
+    }
+
     setIsInlineNicLoading(true);
     try {
       if (useAiNic) {
         const response = await fetch('/api/search-taxonomy', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
           body: JSON.stringify({ query: inlineNicSearchQuery, type: 'nic' })
         });
+
+        if (response.status === 401) {
+          setShowAuthModal(true);
+          return;
+        }
+        if (response.status === 403) {
+          setShowPaywallModal(true);
+          return;
+        }
+
         if (!response.ok) throw new Error('API NIC search error');
         const data = await response.json();
         setInlineNicResults(data.results || []);
@@ -415,14 +895,55 @@ export default function App() {
       diag.defaultNicCode === "Not Provided in Source";
 
     if (isNocInvalid || isNicInvalid) {
+      if (subscriptionStatus !== 'active') {
+        const bestNoc = findBestNoc(diag.name, diag.definition);
+        const bestNic = findBestNic(diag.name, diag.definition);
+
+        setAnalysisResult({
+          nandaCode: diag.code,
+          nandaName: diag.name,
+          definition: diag.definition,
+          relatedFactors: diagRelatedFactors(diag),
+          nocCode: bestNoc.code,
+          nocName: bestNoc.name,
+          nocIndicators: bestNoc.indicators || [],
+          nicCode: bestNic.code,
+          nicName: bestNic.name,
+          nicActivities: bestNic.activities || [],
+          justification: `Asociación local offline mediante coincidencia de palabras clave (Plan Gratuito).`
+        });
+
+        setChosenFactors(diag.relatedFactors && diag.relatedFactors.length > 0 ? [diag.relatedFactors[0]] : ['Presencia de factores relacionados clínicos']);
+        setChosenIndicators((bestNoc.indicators || []).map(i => i.code));
+        setChosenActivities((bestNic.activities || []).slice(0, 3));
+
+        setShowPaywallModal(true);
+        return;
+      }
+
       setIsMappingLoading(true);
       setAnalysisResult(null); // Show skeleton loader
       try {
         const response = await fetch('/api/get-nanda-mapping', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
           body: JSON.stringify({ nandaCode: diag.code, nandaName: diag.name })
         });
+
+        if (response.status === 401) {
+          setShowAuthModal(true);
+          setIsMappingLoading(false);
+          return;
+        }
+        if (response.status === 403) {
+          setShowPaywallModal(true);
+          setIsMappingLoading(false);
+          return;
+        }
+
         if (!response.ok) throw new Error('API mapping error');
         const data = await response.json();
         const mapping = data.mapping;
@@ -597,6 +1118,1066 @@ Justificación del plan: ${analysisResult.justification}`;
     justification: 'Por favor, inicie una consulta para rellenar este plan.'
   };
 
+  const renderGlasgowCalculator = () => {
+    const total = glasgowOcular + glasgowVerbal + glasgowMotor;
+    let severity = "Trauma Leve";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600";
+    if (total <= 8) {
+      severity = "Trauma Severo / Estado de Coma";
+      colorClass = "bg-rose-500 text-white border-rose-600";
+    } else if (total <= 12) {
+      severity = "Trauma Moderado";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Coma de Glasgow</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa el nivel de estado de alerta y conciencia neurológica.</p>
+        </div>
+
+        <div className="space-y-4">
+          {/* Ocular */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-650 block">1. Apertura Ocular</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { val: 4, txt: "4 - Espontánea" },
+                { val: 3, txt: "3 - Al estímulo verbal" },
+                { val: 2, txt: "2 - Al estímulo doloroso" },
+                { val: 1, txt: "1 - Sin respuesta" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setGlasgowOcular(opt.val)}
+                  className={`px-2 py-2.5 rounded-xl border text-[11px] font-bold text-center transition-all cursor-pointer ${
+                    glasgowOcular === opt.val
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Verbal */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-650 block">2. Respuesta Verbal</label>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {[
+                { val: 5, txt: "5 - Orientado" },
+                { val: 4, txt: "4 - Confuso" },
+                { val: 3, txt: "3 - Inapropiado" },
+                { val: 2, txt: "2 - Incomprensible" },
+                { val: 1, txt: "1 - Sin respuesta" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setGlasgowVerbal(opt.val)}
+                  className={`px-2 py-2.5 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                    glasgowVerbal === opt.val
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Motor */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-650 block">3. Respuesta Motora</label>
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
+              {[
+                { val: 6, txt: "6 - Obedece" },
+                { val: 5, txt: "5 - Localiza" },
+                { val: 4, txt: "4 - Retirada" },
+                { val: 3, txt: "3 - Flexión" },
+                { val: 2, txt: "2 - Extensión" },
+                { val: 1, txt: "1 - Sin respuesta" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setGlasgowMotor(opt.val)}
+                  className={`px-1 py-2.5 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${
+                    glasgowMotor === opt.val
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 15 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {severity}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderApgarCalculator = () => {
+    const total = apgarColor + apgarPulse + apgarReflex + apgarTone + apgarResp;
+    let interpretation = "Sin depresión (Neonato normal)";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600";
+    if (total <= 3) {
+      interpretation = "Depresión severa (Asfixia grave)";
+      colorClass = "bg-rose-500 text-white border-rose-600";
+    } else if (total <= 6) {
+      interpretation = "Depresión moderada (Asfixia moderada)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Test de APGAR</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa la adaptación y vitalidad fisiológica del recién nacido.</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">1. Coloración de la Piel (Aspecto)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Cianótico generalizado o pálido" },
+                { val: 1, txt: "1 - Acrocianosis (cuerpo rosado, extremidades azules)" },
+                { val: 2, txt: "2 - Completamente rosado" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setApgarColor(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    apgarColor === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">2. Frecuencia Cardíaca (Pulso)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Ausente" },
+                { val: 1, txt: "1 - < 100 latidos por minuto" },
+                { val: 2, txt: "2 - >= 100 latidos por minuto" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setApgarPulse(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    apgarPulse === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">3. Respuesta a Estímulos (Gesto)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Sin respuesta / flacidez" },
+                { val: 1, txt: "1 - Gesticulaciones / muecas" },
+                { val: 2, txt: "2 - Llanto fuerte, tos o estornudos" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setApgarReflex(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    apgarReflex === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">4. Tono Muscular (Actividad)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Flácido / sin movimientos" },
+                { val: 1, txt: "1 - Cierta flexión de extremidades" },
+                { val: 2, txt: "2 - Movimientos activos y vigorosos" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setApgarTone(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    apgarTone === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">5. Esfuerzo Respiratorio (Respiración)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Ausente" },
+                { val: 1, txt: "1 - Lento, irregular o quejumbroso" },
+                { val: 2, txt: "2 - Llanto fuerte y vigoroso" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setApgarResp(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    apgarResp === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado APGAR</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 10 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {interpretation}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSilvermanCalculator = () => {
+    const total = silvermanThorax + silvermanRetraction + silvermanXiphoid + silvermanNasal + silvermanGrunt;
+    let interpretation = "Sin dificultad respiratoria";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600";
+    if (total >= 7) {
+      interpretation = "Dificultad respiratoria severa";
+      colorClass = "bg-rose-500 text-white border-rose-600";
+    } else if (total >= 4) {
+      interpretation = "Dificultad respiratoria moderada";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600";
+    } else if (total >= 1) {
+      interpretation = "Dificultad respiratoria leve";
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Test de Silverman-Andersen</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa la presencia y gravedad de la dificultad respiratoria en recién nacidos (menor puntaje es mejor).</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">1. Disociación toraco-abdominal</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Sincronizado y regular" },
+                { val: 1, txt: "1 - Tórax inmóvil, abdomen en movimiento" },
+                { val: 2, txt: "2 - Sube y baja alternado (sube tórax, baja abdomen)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setSilvermanThorax(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    silvermanThorax === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">2. Tiraje Intercostal (Retracción)</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Ausente" },
+                { val: 1, txt: "1 - Apenas visible" },
+                { val: 2, txt: "2 - Marcado y constante" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setSilvermanRetraction(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    silvermanRetraction === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">3. Retracción Xifoidea</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Sin retracción" },
+                { val: 1, txt: "1 - Apenas visible" },
+                { val: 2, txt: "2 - Marcada y profunda" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setSilvermanXiphoid(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    silvermanXiphoid === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">4. Aleteo Nasal</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Ausente" },
+                { val: 1, txt: "1 - Mínimo" },
+                { val: 2, txt: "2 - Marcado y dilatado" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setSilvermanNasal(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    silvermanNasal === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">5. Quejido Espiratorio</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 0, txt: "0 - Ausente" },
+                { val: 1, txt: "1 - Audible únicamente con estetoscopio" },
+                { val: 2, txt: "2 - Audible a simple oído" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setSilvermanGrunt(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    silvermanGrunt === opt.val ? 'bg-indigo-600 border-indigo-600 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Silverman</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 10 puntos (menor es mejor)</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {interpretation}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBmiCalculator = () => {
+    const weightNum = parseFloat(bmiWeight) || 0;
+    const heightNum = (parseFloat(bmiHeight) || 0) / 100;
+    const bmi = heightNum > 0 ? (weightNum / (heightNum * heightNum)) : 0;
+    
+    let classification = "Datos insuficientes";
+    let colorClass = "bg-slate-100 text-slate-500";
+    
+    if (bmi > 0) {
+      if (bmi < 18.5) {
+        classification = "Bajo peso";
+        colorClass = "bg-yellow-500 text-white border-yellow-600";
+      } else if (bmi < 25) {
+        classification = "Normopeso (Normal)";
+        colorClass = "bg-emerald-500 text-white border-emerald-600";
+      } else if (bmi < 30) {
+        classification = "Sobrepeso";
+        colorClass = "bg-amber-500 text-slate-900 border-amber-600";
+      } else if (bmi < 35) {
+        classification = "Obesidad Grado I (Leve)";
+        colorClass = "bg-rose-500 text-white border-rose-600";
+      } else if (bmi < 40) {
+        classification = "Obesidad Grado II (Moderada)";
+        colorClass = "bg-rose-650 text-white border-rose-700";
+      } else {
+        classification = "Obesidad Grado III (Mórbida)";
+        colorClass = "bg-red-700 text-white border-red-800 animate-pulse";
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Cálculo de Índice de Masa Corporal (IMC)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el estado nutricional antropométrico basado en peso y estatura.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700">Peso Corporal (kg)</label>
+            <input
+              type="number"
+              value={bmiWeight}
+              onChange={(e) => setBmiWeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="70"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700">Estatura o Altura (cm)</label>
+            <input
+              type="number"
+              value={bmiHeight}
+              onChange={(e) => setBmiHeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="170"
+            />
+          </div>
+        </div>
+
+        {bmi > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Tu IMC Calculado</span>
+              <div className="flex items-center gap-2 justify-center sm:justify-start">
+                <span className="text-3xl font-extrabold text-slate-800">{bmi.toFixed(1)}</span>
+                <span className="text-xs font-bold text-slate-400">kg/m²</span>
+              </div>
+            </div>
+
+            <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+              {classification}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderFppCalculator = () => {
+    let fppResult = "";
+    let weeks = 0;
+    let days = 0;
+    
+    if (furDate) {
+      const fur = new Date(furDate);
+      const fpp = new Date(fur.getTime() + 280 * 24 * 60 * 60 * 1000);
+      fppResult = fpp.toLocaleDateString();
+
+      const diffTime = Math.abs(new Date().getTime() - fur.getTime());
+      const totalDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      weeks = Math.floor(totalDays / 7);
+      days = totalDays % 7;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Fecha Probable de Parto & Edad Gestacional</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula la FPP usando la regla de Naegele y estima las semanas de embarazo.</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-700 block">Fecha de la Última Regla (FUR)</label>
+          <input
+            type="date"
+            value={furDate}
+            onChange={(e) => setFurDate(e.target.value)}
+            className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+          />
+        </div>
+
+        {furDate && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Fecha Probable de Parto</span>
+              <div className="mt-2 text-2xl font-extrabold text-slate-800">
+                {fppResult}
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Edad Gestacional Estimada</span>
+              <div className="mt-2 text-xl font-extrabold text-indigo-700">
+                {weeks} semanas y {days} días
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderDoseCalculator = () => {
+    const prescribedNum = parseFloat(dosePrescribed) || 0;
+    const concentrationNum = parseFloat(doseConcentration) || 0;
+    const diluentNum = parseFloat(doseDiluent) || 0;
+    const volumeResult = concentrationNum > 0 ? ((prescribedNum * diluentNum) / concentrationNum) : 0;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Regla de Tres para Cálculo de Dosis</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el volumen exacto en ml que debes administrar de un medicamento.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">1. Dosis Prescrita (mg)</label>
+            <input
+              type="number"
+              value={dosePrescribed}
+              onChange={(e) => setDosePrescribed(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="Ej: 250"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">2. Concentración Disponible (mg)</label>
+            <input
+              type="number"
+              value={doseConcentration}
+              onChange={(e) => setDoseConcentration(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="Ej: 500"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">3. Volumen del Diluyente (ml)</label>
+            <input
+              type="number"
+              value={doseDiluent}
+              onChange={(e) => setDoseDiluent(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="Ej: 5"
+            />
+          </div>
+        </div>
+
+        {volumeResult > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Volumen a Administrar</span>
+            <div className="mt-2 flex items-baseline gap-1 justify-start">
+              <span className="text-3xl font-extrabold text-indigo-700">{volumeResult.toFixed(2)}</span>
+              <span className="text-xs font-bold text-slate-400">ml o cc</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">
+              Fórmula aplicada: (Dosis Prescrita * Volumen Diluyente) / Concentración Disponible
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAbgCalculator = () => {
+    const ph = parseFloat(abgPh) || 0;
+    const pco2 = parseFloat(abgPco2) || 0;
+    const hco3 = parseFloat(abgHco3) || 0;
+
+    let diagnosis = "Valores de gases arteriales normales";
+    let typeClass = "bg-emerald-500 text-white border-emerald-600";
+
+    if (ph > 0 && pco2 > 0 && hco3 > 0) {
+      if (ph < 7.35) {
+        if (pco2 > 45 && hco3 >= 22 && hco3 <= 26) {
+          diagnosis = "Acidosis Respiratoria No Compensada";
+          typeClass = "bg-rose-500 text-white border-rose-600";
+        } else if (pco2 > 45 && hco3 > 26) {
+          diagnosis = "Acidosis Respiratoria Parcialmente Compensada";
+          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
+        } else if (hco3 < 22 && pco2 >= 35 && pco2 <= 45) {
+          diagnosis = "Acidosis Metabólica No Compensada";
+          typeClass = "bg-rose-500 text-white border-rose-600";
+        } else if (hco3 < 22 && pco2 < 35) {
+          diagnosis = "Acidosis Metabólica Parcialmente Compensada";
+          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
+        } else if (pco2 > 45 && hco3 < 22) {
+          diagnosis = "Acidosis Mixta (Respiratoria y Metabólica)";
+          typeClass = "bg-rose-650 text-white border-rose-700";
+        }
+      } else if (ph > 7.45) {
+        if (pco2 < 35 && hco3 >= 22 && hco3 <= 26) {
+          diagnosis = "Alcalosis Respiratoria No Compensada";
+          typeClass = "bg-rose-500 text-white border-rose-600";
+        } else if (pco2 < 35 && hco3 < 22) {
+          diagnosis = "Alcalosis Respiratoria Parcialmente Compensada";
+          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
+        } else if (hco3 > 26 && pco2 >= 35 && pco2 <= 45) {
+          diagnosis = "Alcalosis Metabólica No Compensada";
+          typeClass = "bg-rose-500 text-white border-rose-600";
+        } else if (hco3 > 26 && pco2 > 45) {
+          diagnosis = "Alcalosis Metabólica Parcialmente Compensada";
+          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
+        } else if (pco2 < 35 && hco3 > 26) {
+          diagnosis = "Alcalosis Mixta (Respiratoria y Metabólica)";
+          typeClass = "bg-rose-650 text-white border-rose-700";
+        }
+      } else {
+        if (pco2 > 45 && hco3 > 26) {
+          diagnosis = ph < 7.40 ? "Acidosis Respiratoria Totalmente Compensada" : "Alcalosis Metabólica Totalmente Compensada";
+          typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
+        } else if (pco2 < 35 && hco3 < 22) {
+          diagnosis = ph < 7.40 ? "Acidosis Metabólica Totalmente Compensada" : "Alcalosis Respiratoria Totalmente Compensada";
+          typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
+        } else {
+          diagnosis = "Gases Arteriales Normales (Eje de Equilibrio Ácido-Base)";
+          typeClass = "bg-emerald-500 text-white border-emerald-600";
+        }
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Interpretación de Gases Arteriales (ABG)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Analiza el estado ácido-base del paciente a través de su pH, pCO2 y HCO3.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">pH Arterial (7.35 - 7.45)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={abgPh}
+              onChange={(e) => setAbgPh(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="7.40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">pCO2 mmHg (35 - 45)</label>
+            <input
+              type="number"
+              value={abgPco2}
+              onChange={(e) => setAbgPco2(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">HCO3 mEq/L (22 - 26)</label>
+            <input
+              type="number"
+              value={abgHco3}
+              onChange={(e) => setAbgHco3(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="24"
+            />
+          </div>
+        </div>
+
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Diagnóstico Clínico</span>
+            <div className={`px-4 py-3 rounded-xl text-xs font-extrabold border shadow-sm mt-1 text-center sm:text-left ${typeClass}`}>
+              {diagnosis}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBradenCalculator = () => {
+    const total = bradenSensory + bradenMoisture + bradenActivity + bradenMobility + bradenNutrition + bradenFriction;
+    let risk = "Riesgo Leve (15-18)";
+    let colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
+    if (total <= 9) {
+      risk = "Riesgo Muy Alto / Severo (<=9)";
+      colorClass = "bg-rose-600 text-white border-rose-700";
+    } else if (total <= 12) {
+      risk = "Riesgo Alto (10-12)";
+      colorClass = "bg-rose-500 text-white border-rose-600";
+    } else if (total <= 14) {
+      risk = "Riesgo Moderado (13-14)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600";
+    } else if (total > 18) {
+      risk = "Sin Riesgo (>18)";
+      colorClass = "bg-emerald-500 text-white border-emerald-600";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Braden</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa y predice el riesgo de desarrollar úlceras por presión (UPP).</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">1. Percepción Sensorial</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              {[
+                { val: 1, txt: "1 - Completamente limitada" },
+                { val: 2, txt: "2 - Muy limitada" },
+                { val: 3, txt: "3 - Ligeramente limitada" },
+                { val: 4, txt: "4 - Sin alteraciones" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenSensory(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenSensory === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">2. Exposición a la Humedad</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              {[
+                { val: 1, txt: "1 - Constantemente húmeda" },
+                { val: 2, txt: "2 - A menudo húmeda" },
+                { val: 3, txt: "3 - Ocasionalmente húmeda" },
+                { val: 4, txt: "4 - Raramente húmeda" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenMoisture(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenMoisture === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">3. Actividad Física</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              {[
+                { val: 1, txt: "1 - Encamado" },
+                { val: 2, txt: "2 - En silla de ruedas" },
+                { val: 3, txt: "3 - Deambula ocasionalmente" },
+                { val: 4, txt: "4 - Deambula frecuentemente" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenActivity(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenActivity === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">4. Movilidad Corporal</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              {[
+                { val: 1, txt: "1 - Completamente inmóvil" },
+                { val: 2, txt: "2 - Muy limitada" },
+                { val: 3, txt: "3 - Ligeramente limitada" },
+                { val: 4, txt: "4 - Sin limitaciones" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenMobility(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenMobility === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">5. Patrón de Nutrición</label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              {[
+                { val: 1, txt: "1 - Muy pobre" },
+                { val: 2, txt: "2 - Probablemente inadecuada" },
+                { val: 3, txt: "3 - Adecuada" },
+                { val: 4, txt: "4 - Excelente" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenNutrition(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenNutrition === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">6. Fricción y Cizallamiento</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { val: 1, txt: "1 - Problema constante" },
+                { val: 2, txt: "2 - Problema potencial" },
+                { val: 3, txt: "3 - Sin problemas" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setBradenFriction(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-left transition-all cursor-pointer ${
+                    bradenFriction === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala Braden</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 23 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {risk}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDowntonCalculator = () => {
+    const total = downtonFalls + downtonMeds + downtonSensory + downtonMental + downtonGait;
+    let risk = "Riesgo Bajo de Caídas (<3)";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600";
+    if (total >= 3) {
+      risk = "Riesgo Alto de Caídas (>=3)";
+      colorClass = "bg-rose-500 text-white border-rose-600";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Downton</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa y estratifica el riesgo de caídas en pacientes hospitalizados o geriátricos.</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">1. Antecedentes de caídas previas</label>
+            <div className="grid grid-cols-2 gap-2 max-w-xs">
+              {[
+                { val: 0, txt: "No (0)" },
+                { val: 1, txt: "Sí (1)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDowntonFalls(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                    downtonFalls === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">2. Medicamentos de riesgo</label>
+            <p className="text-[10px] text-slate-400 leading-tight pb-1">
+              (Tranquilizantes, sedantes, diuréticos, hipotensores, antiparkinsonianos, antidepresivos, neurolepticos).
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-xs">
+              {[
+                { val: 0, txt: "Ninguno (0)" },
+                { val: 1, txt: "Sí toma uno o más (1)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDowntonMeds(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                    downtonMeds === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">3. Déficits sensoriales</label>
+            <p className="text-[10px] text-slate-400 leading-tight pb-1">
+              (Alteraciones visuales importantes, auditivas o paresia/déficits de extremidades).
+            </p>
+            <div className="grid grid-cols-2 gap-2 max-w-xs">
+              {[
+                { val: 0, txt: "Ninguno (0)" },
+                { val: 1, txt: "Sí presenta (1)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDowntonSensory(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                    downtonSensory === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">4. Estado Mental</label>
+            <div className="grid grid-cols-2 gap-2 max-w-xs">
+              {[
+                { val: 0, txt: "Orientado (0)" },
+                { val: 1, txt: "Confuso o demente (1)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDowntonMental(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                    downtonMental === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-655 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 block">5. Tipo de Marcha / Ambulación</label>
+            <div className="grid grid-cols-2 gap-2 max-w-xs">
+              {[
+                { val: 0, txt: "Segura / Normal (0)" },
+                { val: 1, txt: "Insegura, con ayuda o limitada (1)" }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  onClick={() => setDowntonGait(opt.val)}
+                  className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                    downtonGait === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-655 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.txt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala Downton</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 5 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {risk}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <ErrorBoundary>
       {showLanding ? (
@@ -613,95 +2194,266 @@ Justificación del plan: ${analysisResult.justification}`;
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-400">Consultor Clínico</p>
-                <h1 className="text-sm font-extrabold tracking-tight">Taxonomías NANDA-I, NOC & NIC</h1>
+                <h1 className="text-sm font-extrabold tracking-tight text-white">Taxonomías NANDA-I, NOC & NIC</h1>
               </div>
             </div>
-            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Taxonomía 2024-2026 Activa
-            </span>
+            
+            <div className="flex items-center flex-wrap justify-center gap-3">
+              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Taxonomía 2024-2026 Activa
+              </span>
+
+              {/* Dark mode friendly user profile widget */}
+              <div className="flex items-center gap-2">
+                {authLoading ? (
+                  <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                ) : user ? (
+                  <div className="flex items-center gap-2.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-2xl backdrop-blur-sm">
+                    <div className="flex flex-col text-right">
+                      <span className="text-[10px] font-bold text-slate-200 truncate max-w-[130px]">{user.email}</span>
+                      {subscriptionStatus === 'active' ? (
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/20 w-fit self-end">Premium ★</span>
+                      ) : (
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-slate-400 bg-white/10 px-1 py-0.5 rounded w-fit self-end">Plan Gratuito</span>
+                      )}
+                    </div>
+                    
+                    {subscriptionStatus === 'active' ? (
+                      <button
+                        onClick={handleManageSubscription}
+                        className="text-[10px] font-extrabold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-xl transition-all cursor-pointer font-sans"
+                      >
+                        Mi Plan
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowPaywallModal(true)}
+                        className="text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-amber-600 text-white px-2.5 py-1 rounded-xl shadow-sm hover:from-amber-600 hover:to-amber-700 transition-all cursor-pointer font-sans"
+                      >
+                        Mejorar
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      className="p-1 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                      title="Cerrar Sesión"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAuthMode('login');
+                      setShowAuthModal(true);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl text-[11px] font-extrabold shadow-md shadow-indigo-600/20 active:scale-[0.98] transition-all cursor-pointer font-sans"
+                  >
+                    Iniciar Sesión
+                  </button>
+                )}
+              </div>
+            </div>
           </header>
 
           {/* Landing Body */}
-          <main className="flex-1 max-w-4xl mx-auto w-full px-6 py-12 flex flex-col justify-center relative z-10 space-y-12">
+          <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 flex flex-col justify-center relative z-10 space-y-16">
             
-            {/* Hero Section */}
-            <div className="text-center space-y-4 max-w-2xl mx-auto">
-              <div className="inline-flex items-center gap-2 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-3 py-1 rounded-xl text-[10px] font-bold">
-                <Sparkles className="w-3.5 h-3.5" />
-                Impulsado por Inteligencia Artificial y Respaldo Local
+            {/* Hero Section - Two Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+              {/* Left Column: Info & CTA */}
+              <div className="md:col-span-7 space-y-6 text-left">
+                <div className="inline-flex items-center gap-2 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-3 py-1 rounded-xl text-[10px] font-bold">
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-indigo-400" />
+                  Impulsado por Inteligencia Artificial y Respaldo Local
+                </div>
+                <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-white via-indigo-100 to-slate-400 bg-clip-text text-transparent">
+                  Consultor Clínico de Enfermería NNN
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+                  Diseña, consulta y valida tus planes de cuidados de enfermería de manera integral y ágil. Vincula síntomas con diagnósticos NANDA, resultados NOC e intervenciones NIC al instante, con herramientas y calculadoras de soporte integradas.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2">
+                  <button
+                    onClick={() => setShowLanding(false)}
+                    className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 group font-sans"
+                  >
+                    Comenzar Consulta de Cuidados
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </button>
+                  <button
+                    onClick={() => document.getElementById('features-section')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="px-5 py-3.5 bg-white/5 hover:bg-white/10 text-slate-300 font-extrabold rounded-2xl text-xs transition-all border border-white/10 cursor-pointer flex items-center gap-2 font-sans"
+                  >
+                    Ver Nuevas Funciones
+                  </button>
+                </div>
               </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight bg-gradient-to-r from-white via-indigo-100 to-slate-400 bg-clip-text text-transparent">
-                Consultor Clínico de Enfermería NNN
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Diseña, consulta y valida tus planes de cuidados de enfermería de manera integral y ágil. Vincula síntomas con diagnósticos NANDA, resultados NOC e intervenciones NIC al instante.
-              </p>
+              
+              {/* Right Column: High-Tech Nurse Image */}
+              <div className="md:col-span-5 flex justify-center relative">
+                {/* Decorative glow effects */}
+                <div className="absolute -inset-2 bg-gradient-to-tr from-indigo-500/30 via-purple-500/10 to-emerald-500/30 rounded-[36px] blur-2xl opacity-75 -z-10 animate-pulse"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4/5 h-4/5 rounded-full bg-indigo-600/10 blur-[80px] -z-10"></div>
+                
+                <div className="p-2 bg-white/[0.03] border border-white/10 rounded-[32px] backdrop-blur-md shadow-2xl transition-transform duration-500 hover:scale-[1.03]">
+                  <img 
+                    src={techNurseImg} 
+                    alt="Enfermera Tecnológica NNN" 
+                    className="rounded-[24px] border border-white/5 w-full max-w-[300px] md:max-w-full aspect-square object-cover bg-slate-900/60 shadow-inner"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Core Instruction Steps Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* STEP 1 */}
-              <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-sm">
-                  01
-                </div>
-                <h3 className="font-extrabold text-sm text-slate-200">Indicar Síntomas o Buscar Códigos</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Describe los síntomas de tu paciente en lenguaje natural (ej. <i>"sudoración excesiva"</i>), busca directamente por código NANDA, o explora las clases del árbol taxonómico completo.
-                </p>
+            <div className="space-y-6">
+              <div className="text-center md:text-left">
+                <h3 className="text-lg font-bold text-slate-100">Flujo General de Trabajo</h3>
+                <p className="text-xs text-slate-400">Cuatro pasos sencillos para estructurar tu plan clínico</p>
               </div>
-
-              {/* STEP 2 */}
-              <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
-                  02
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                {/* STEP 1 */}
+                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-sm">
+                    01
+                  </div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Ingresar Síntomas</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Describe los signos y síntomas de tu paciente en lenguaje natural (ej. <i>"dolor de cabeza agudo"</i>) o busca por código.
+                  </p>
                 </div>
-                <h3 className="font-extrabold text-sm text-slate-200">Mapeo Automático de Cuidados</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  La plataforma (vía Gemini IA o su base de datos local) generará al instante el diagnóstico NANDA, el resultado esperado (NOC) y la intervención de enfermería (NIC) más adecuados.
-                </p>
-              </div>
 
-              {/* STEP 3 */}
-              <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">
-                  03
+                {/* STEP 2 */}
+                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm">
+                    02
+                  </div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Mapeo NNN</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    La plataforma vincula al instante el diagnóstico NANDA, el resultado esperado (NOC) y la intervención NIC ideal.
+                  </p>
                 </div>
-                <h3 className="font-extrabold text-sm text-slate-200">Personalización e Intercambio Inline</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Selecciona los factores relacionados o actividades que apliquen a tu paciente. ¿Quieres cambiar el NOC o el NIC sugerido? Usa los buscadores internos para realizar un <b>intercambio (swap)</b> inmediato.
-                </p>
-              </div>
 
-              {/* STEP 4 */}
-              <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-sm">
-                  04
+                {/* STEP 3 */}
+                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                    03
+                  </div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Personalizar Plan</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Selecciona factores e indicadores. Modifica o intercambia el NOC o NIC usando nuestros buscadores interactivos.
+                  </p>
                 </div>
-                <h3 className="font-extrabold text-sm text-slate-200">Copia la Nota de Evolución</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  A medida que personalizas tu plan, la plataforma compila una nota clínica estructurada en formato estándar. Cópiala con un solo clic para pegarla en tu sistema de historia clínica.
-                </p>
-              </div>
 
+                {/* STEP 4 */}
+                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/5 p-6 rounded-3xl space-y-3 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all duration-300">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-sm">
+                    04
+                  </div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Obtener Nota</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Copia la nota de evolución clínica redactada automáticamente en formato estándar (SOAPIE) para tu sistema de salud.
+                  </p>
+                </div>
+
+              </div>
             </div>
 
-            {/* Database Info & CTA */}
-            <div className="flex flex-col items-center space-y-6 pt-4">
+            {/* New Features Section */}
+            <div id="features-section" className="space-y-6 pt-4 scroll-mt-24">
+              <div className="text-center md:text-left space-y-1">
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400">Expansión Premium</div>
+                <h3 className="text-lg font-bold text-slate-100">Suite Clínico y Nuevas Funcionalidades</h3>
+                <p className="text-xs text-slate-400">Herramientas avanzadas integradas para optimizar la práctica diaria de enfermería</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Feature 1: Calculadoras */}
+                <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-white/5 hover:border-indigo-500/20 p-6 rounded-3xl flex gap-4 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calculator className="w-5.5 h-5.5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                      9 Calculadoras Clínicas
+                      <span className="text-[9px] font-extrabold bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">Free & Premium</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Escala de Glasgow, Test de APGAR, Test de Silverman-Andersen, Interpretación de Gases Arteriales (AGA), IMC, Dosificación de Medicamentos, Braden, Downton y cálculo de FPP integradas en un solo lugar.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Feature 2: Guardado en la Nube */}
+                <div className="bg-gradient-to-br from-emerald-950/10 to-slate-900/40 border border-white/5 hover:border-emerald-500/20 p-6 rounded-3xl flex gap-4 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                    <Database className="w-5.5 h-5.5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                      Historial y Planes en la Nube
+                      <span className="text-[9px] font-extrabold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">Premium</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Guarda tus planes de cuidados directamente en Firestore con el nombre del paciente. Edita, visualiza en detalle o cárgalos de regreso al workspace activo en cualquier momento.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Feature 3: Redactor SOAPIE IA */}
+                <div className="bg-gradient-to-br from-amber-950/10 to-slate-900/40 border border-white/5 hover:border-amber-500/20 p-6 rounded-3xl flex gap-4 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5.5 h-5.5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                      Redacción SOAPIE con IA
+                      <span className="text-[9px] font-extrabold bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">Premium</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Genera notas de evolución completas siguiendo la metodología SOAPIE usando IA avanzada de Gemini. Incluye un sistema de respaldo inteligente fuera de línea.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Feature 4: PDF & Grid de Impresión */}
+                <div className="bg-gradient-to-br from-rose-950/10 to-slate-900/40 border border-white/5 hover:border-rose-500/20 p-6 rounded-3xl flex gap-4 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+                    <Printer className="w-5.5 h-5.5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h4 className="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                      Exportación PDF & Impresión
+                      <span className="text-[9px] font-extrabold bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/30">Universal</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Imprime o exporta tus fichas de cuidados a PDF. La hoja de estilos de impresión oculta la interfaz de la app para producir una grilla de formato clínico limpio y profesional.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Database Statistics info */}
+            <div className="flex flex-col items-center space-y-5 pt-4">
               <div className="flex flex-wrap justify-center gap-4 text-xs text-slate-400">
-                <span className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700"><b>277</b> Diagnósticos NANDA</span>
-                <span className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700"><b>612</b> Resultados NOC</span>
-                <span className="bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700"><b>614</b> Intervenciones NIC</span>
+                <span className="bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700/60"><b>277</b> Diagnósticos NANDA</span>
+                <span className="bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700/60"><b>612</b> Resultados NOC</span>
+                <span className="bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700/60"><b>614</b> Intervenciones NIC</span>
               </div>
 
               <button
                 onClick={() => setShowLanding(false)}
-                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 group font-sans"
+                className="px-10 py-4.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-extrabold rounded-2xl text-xs transition-all shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center gap-2 group font-sans"
               >
                 Comenzar Consulta de Cuidados
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
+                <span className="group-hover:translate-x-1.5 transition-transform duration-300">→</span>
               </button>
             </div>
 
@@ -736,7 +2488,7 @@ Justificación del plan: ${analysisResult.justification}`;
           <div className="flex flex-wrap items-center gap-3 justify-center">
             <button
               onClick={() => setShowLanding(true)}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-indigo-100 flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-indigo-100 flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all font-sans"
             >
               <BookOpen className="w-3.5 h-3.5" />
               Ver Instrucciones
@@ -754,11 +2506,114 @@ Justificación del plan: ${analysisResult.justification}`;
               <Database className="w-3.5 h-3.5" />
               Base de Datos Offline Lista
             </span>
+
+            {/* Light mode friendly user profile widget */}
+            <div className="flex items-center gap-2 border-l border-slate-205 pl-3">
+              {authLoading ? (
+                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : user ? (
+                <div className="flex items-center gap-2.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-2xl">
+                  <div className="flex flex-col text-right">
+                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[130px]">{user.email}</span>
+                    {subscriptionStatus === 'active' ? (
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-250 w-fit self-end">Premium ★</span>
+                    ) : (
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 bg-slate-200 px-1 py-0.5 rounded w-fit self-end">Plan Gratuito</span>
+                    )}
+                  </div>
+                  
+                  {subscriptionStatus === 'active' ? (
+                    <button
+                      onClick={handleManageSubscription}
+                      className="text-[10px] font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-xl transition-all cursor-pointer font-sans"
+                    >
+                      Mi Plan
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowPaywallModal(true)}
+                      className="text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-amber-600 text-white px-2.5 py-1 rounded-xl shadow-sm hover:from-amber-600 hover:to-amber-700 transition-all cursor-pointer font-sans"
+                    >
+                      Mejorar
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleLogout}
+                    className="p-1 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+                    title="Cerrar Sesión"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setAuthMode('login');
+                    setShowAuthModal(true);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl text-[11px] font-extrabold shadow-md shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer font-sans"
+                >
+                  Iniciar Sesión
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
-        {/* Main split-screen panel */}
-        <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Navigation Tabs Bar */}
+        <div className="bg-slate-100/80 backdrop-blur-md border-b border-slate-200/60 py-2 px-6 md:px-10 flex gap-2 overflow-x-auto whitespace-nowrap">
+          <button
+            onClick={() => setActiveTab('consultant')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'consultant'
+                ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            Consultor de Cuidados
+          </button>
+          
+          <button
+            onClick={() => {
+              if (subscriptionStatus !== 'active') {
+                setShowPaywallModal(true);
+                return;
+              }
+              setActiveTab('saved_plans');
+              fetchSavedPlans();
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${
+              activeTab === 'saved_plans'
+                ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            Mis Planes Guardados
+            {subscriptionStatus !== 'active' && (
+              <Sparkles className="w-3 h-3 text-amber-500 absolute -top-1 -right-1" />
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('calculators');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'calculators'
+                ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            Calculadoras Clínicas
+          </button>
+        </div>
+
+        {activeTab === 'consultant' && (
+          <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT COLUMN: Query tools (col-span-5) */}
           <section className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 space-y-6 flex flex-col">
@@ -898,7 +2753,17 @@ Justificación del plan: ${analysisResult.justification}`;
                       type="checkbox"
                       id="ai-toggle-nanda-catalog"
                       checked={useAiNanda}
-                      onChange={(e) => setUseAiNanda(e.target.checked)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          if (subscriptionStatus !== 'active') {
+                            setShowPaywallModal(true);
+                          } else {
+                            setUseAiNanda(true);
+                          }
+                        } else {
+                          setUseAiNanda(false);
+                        }
+                      }}
                       className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500/10 cursor-pointer w-4 h-4"
                     />
                     <label htmlFor="ai-toggle-nanda-catalog" className="text-[10px] font-bold text-slate-600 cursor-pointer select-none flex items-center gap-1">
@@ -1229,7 +3094,7 @@ Justificación del plan: ${analysisResult.justification}`;
                       <button
                         onClick={handleInlineNocSearch}
                         disabled={isInlineNocLoading}
-                        className="px-3 py-2 bg-emerald-650 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                        className="px-3 py-2 bg-emerald-650 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer font-sans"
                       >
                         {isInlineNocLoading ? (
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1238,6 +3103,29 @@ Justificación del plan: ${analysisResult.justification}`;
                         )}
                         <span>Buscar</span>
                       </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 border border-slate-150 rounded-xl">
+                      <input
+                        type="checkbox"
+                        id="ai-toggle-noc-search"
+                        checked={useAiNoc}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            if (subscriptionStatus !== 'active') {
+                              setShowPaywallModal(true);
+                            } else {
+                              setUseAiNoc(true);
+                            }
+                          } else {
+                            setUseAiNoc(false);
+                          }
+                        }}
+                        className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500/10 cursor-pointer w-4 h-4"
+                      />
+                      <label htmlFor="ai-toggle-noc-search" className="text-[10px] font-bold text-slate-600 cursor-pointer select-none flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Búsqueda Asistida por IA
+                      </label>
                     </div>
 
                     {/* Inline NOC results */}
@@ -1350,7 +3238,7 @@ Justificación del plan: ${analysisResult.justification}`;
                       <button
                         onClick={handleInlineNicSearch}
                         disabled={isInlineNicLoading}
-                        className="px-3 py-2 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer"
+                        className="px-3 py-2 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer font-sans"
                       >
                         {isInlineNicLoading ? (
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1359,6 +3247,29 @@ Justificación del plan: ${analysisResult.justification}`;
                         )}
                         <span>Buscar</span>
                       </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 border border-slate-150 rounded-xl">
+                      <input
+                        type="checkbox"
+                        id="ai-toggle-nic-search"
+                        checked={useAiNic}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            if (subscriptionStatus !== 'active') {
+                              setShowPaywallModal(true);
+                            } else {
+                              setUseAiNic(true);
+                            }
+                          } else {
+                            setUseAiNic(false);
+                          }
+                        }}
+                        className="rounded border-slate-350 text-indigo-650 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      />
+                      <label htmlFor="ai-toggle-nic-search" className="text-[10px] font-bold text-slate-600 cursor-pointer select-none flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> Búsqueda Asistida por IA
+                      </label>
                     </div>
 
                     {/* Inline NIC results */}
@@ -1412,28 +3323,65 @@ Justificación del plan: ${analysisResult.justification}`;
                       <h4 className="font-extrabold text-slate-800 text-sm">Nota de Evolución Clínica de Enfermería</h4>
                     </div>
                     
-                    <button
-                      onClick={copyToClipboard}
-                      className="px-3.5 py-2 text-xs text-indigo-650 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 w-full sm:w-auto justify-center"
-                    >
-                      {copiedNote ? (
-                        <>
-                          <CopyCheck className="w-4 h-4 text-emerald-600" /> ¡Nota Copiada!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" /> Copiar al Clipboard
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                      {/* AI SOAPIE Button */}
+                      <button
+                        onClick={() => {
+                          if (subscriptionStatus !== 'active') {
+                            setShowPaywallModal(true);
+                            return;
+                          }
+                          handleGenerateSoapie();
+                        }}
+                        disabled={soapieGenerating}
+                        className="px-3.5 py-2 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 flex-1 sm:flex-initial justify-center"
+                      >
+                        {soapieGenerating ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" /> Generando...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 text-amber-500" /> Redactar SOAPIE con IA
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={copyToClipboard}
+                        className="px-3.5 py-2 text-xs text-indigo-650 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 flex-1 sm:flex-initial justify-center"
+                      >
+                        {copiedNote ? (
+                          <>
+                            <CopyCheck className="w-4 h-4 text-emerald-600" /> ¡Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" /> Copiar
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <pre className="text-xs bg-slate-900 border border-slate-800 text-slate-200 p-4.5 rounded-2xl overflow-x-auto whitespace-pre-wrap font-mono leading-relaxed max-h-56 shadow-inner">
                     {clinicalNote}
                   </pre>
 
+                  {/* Patient Name Input */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">Nombre del Paciente (Para guardar/exportar)</label>
+                    <input
+                      type="text"
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                      placeholder="Ej. Juan Pérez García..."
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-800"
+                    />
+                  </div>
+
                   {/* Actions Row */}
-                  <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex flex-wrap justify-end gap-3 pt-3 border-t border-slate-100 no-print">
                     <button
                       onClick={() => {
                         setSymptomInput('');
@@ -1443,10 +3391,34 @@ Justificación del plan: ${analysisResult.justification}`;
                         setChosenActivities([]);
                         setInlineNocResults(null);
                         setInlineNicResults(null);
+                        setPatientName('');
                       }}
                       className="px-4.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                     >
-                      Limpiar Workspace Activo
+                      Limpiar Workspace
+                    </button>
+
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" /> Exportar a PDF
+                    </button>
+
+                    <button
+                      onClick={handleSavePlan}
+                      disabled={savingPlan}
+                      className="px-4.5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                    >
+                      {savingPlan ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Guardando...
+                        </>
+                      ) : (
+                        <>
+                          <Database className="w-4 h-4" /> Guardar Plan
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1456,14 +3428,747 @@ Justificación del plan: ${analysisResult.justification}`;
           </section>
 
         </main>
+      )}
 
-        {/* Subtle page footer */}
-        <footer className="py-6 border-t border-slate-200/60 text-center bg-white mt-12">
-          <p className="text-[10px] text-slate-405 font-bold uppercase tracking-wider">
-            Enfermería NNN • Taxonomías NANDA-I 2024-2026, NOC 7ª Ed., NIC 8ª Ed.
-          </p>
-        </footer>
+      {/* RENDER THE SAVED PLANS AND CALCULATORS TAB LAYOUTS */}
+      {activeTab === 'saved_plans' && (
+        <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 space-y-6 no-print">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-800">Mis Planes de Cuidados</h2>
+              <p className="text-xs text-slate-500 mt-1">Historial de planes NANDA-NOC-NIC guardados en tu perfil.</p>
+            </div>
+            <button
+              onClick={() => {
+                setActiveTab('consultant');
+              }}
+              className="px-4.5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-md shadow-indigo-600/10"
+            >
+              <PlusCircle className="w-4 h-4" /> Nuevo Plan
+            </button>
+          </div>
 
+          {plansLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white rounded-3xl border border-slate-200/85 p-6 space-y-4 animate-pulse">
+                  <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                  <div className="h-3 bg-slate-100 rounded w-1/2"></div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-3 bg-slate-100 rounded"></div>
+                    <div className="h-3 bg-slate-100 rounded w-5/6"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : savedPlans.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-md p-10 text-center max-w-xl mx-auto py-16 flex flex-col items-center">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
+                <Database className="w-8 h-8 stroke-[1.5]" />
+              </div>
+              <h3 className="text-base font-extrabold text-slate-800">No tienes planes guardados</h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed max-w-xs">
+                Crea un plan en el **Consultor de Cuidados**, asígnale el nombre del paciente y presiona **Guardar Plan** para registrarlo aquí.
+              </p>
+              <button
+                onClick={() => setActiveTab('consultant')}
+                className="mt-6 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                Ir al Consultor
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {savedPlans.map((plan: any) => (
+                <div key={plan.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden group">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-800 truncate max-w-[180px]">{plan.patientName}</h4>
+                        <span className="text-[9px] text-slate-400 font-bold block mt-0.5">
+                          {plan.createdAt ? new Date(plan.createdAt._seconds ? plan.createdAt._seconds * 1000 : (plan.createdAt.seconds ? plan.createdAt.seconds * 1000 : plan.createdAt)).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fecha desconocida'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDeletePlan(plan.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer shrink-0"
+                        title="Eliminar Plan"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="h-px bg-slate-100"></div>
+
+                    <div className="space-y-2.5 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-md">NANDA</span>
+                        <p className="font-extrabold text-slate-750 leading-tight truncate">{plan.nandaCode} - {plan.nandaName}</p>
+                      </div>
+                      {plan.nocName && (
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-md">NOC</span>
+                          <p className="font-bold text-slate-650 leading-tight truncate">{plan.nocCode} - {plan.nocName}</p>
+                        </div>
+                      )}
+                      {plan.nicName && (
+                        <div className="space-y-0.5">
+                          <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-indigo-50 text-indigo-750 rounded-md">NIC</span>
+                          <p className="font-bold text-slate-650 leading-tight truncate">{plan.nicCode} - {plan.nicName}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex gap-2">
+                    <button
+                      onClick={() => setSelectedPlanDetails(plan)}
+                      className="flex-1 py-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Ver Detalle
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAnalysisResult({
+                          nandaCode: plan.nandaCode,
+                          nandaName: plan.nandaName,
+                          definition: '',
+                          relatedFactors: [],
+                          nocCode: plan.nocCode,
+                          nocName: plan.nocName,
+                          nocIndicators: [],
+                          nicCode: plan.nicCode,
+                          nicName: plan.nicName,
+                          nicActivities: [],
+                          justification: 'Plan cargado del historial.'
+                        });
+                        setChosenFactors([]);
+                        
+                        // Extract codes from indicators formatted as "Name (CÓD: Code)" or use directly
+                        const loadedIndicators = (plan.nocIndicators || []).map((indStr: string) => {
+                          const m = indStr.match(/\(CÓD:\s*(\d+)\)/);
+                          return m ? m[1] : indStr;
+                        });
+                        setChosenIndicators(loadedIndicators);
+                        setChosenActivities(plan.nicActivities || []);
+                        setClinicalNote(plan.evolutionNote || '');
+                        setPatientName(plan.patientName || '');
+                        setActiveTab('consultant');
+                        alert("Plan de cuidados cargado en tu workspace activo.");
+                      }}
+                      className="flex-1 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Cargar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      )}
+
+      {activeTab === 'calculators' && (
+        <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start no-print">
+          {/* Aside Menu */}
+          <aside className="lg:col-span-4 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 space-y-4">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-800">Suite de Calculadoras</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Selecciona una herramienta clínica.</p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              {[
+                { id: 'glasgow', name: 'Escala de Glasgow', isPremium: true },
+                { id: 'apgar', name: 'Test de APGAR', isPremium: true },
+                { id: 'silverman', name: 'Test de Silverman-Andersen', isPremium: true },
+                { id: 'abg', name: 'Gases Arteriales (ABG)', isPremium: true },
+                { id: 'braden', name: 'Escala de Braden (UPP)', isPremium: true },
+                { id: 'downton', name: 'Escala de Downton (Caídas)', isPremium: true },
+                { id: 'fpp', name: 'Fecha Probable de Parto (FPP)', isPremium: true },
+                { id: 'bmi', name: 'Cálculo de IMC', isPremium: false },
+                { id: 'dose', name: 'Regla de Tres (Dosis)', isPremium: false },
+              ].map((calc) => {
+                const isActive = activeCalculator === calc.id;
+                const isLocked = calc.isPremium && subscriptionStatus !== 'active';
+                return (
+                  <button
+                    key={calc.id}
+                    onClick={() => setActiveCalculator(calc.id as any)}
+                    className={`w-full px-4 py-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-between cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-650 text-white shadow-md shadow-indigo-600/10'
+                        : 'bg-slate-50 border border-slate-150 hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Activity className="w-4 h-4 shrink-0" />
+                      {calc.name}
+                    </span>
+                    {isLocked ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500" />
+                    ) : calc.isPremium ? (
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    ) : (
+                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded-md">Gratis</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* Active Calculator Workspace */}
+          <section className="lg:col-span-8 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 min-h-[480px] flex flex-col justify-between">
+            {['glasgow', 'apgar', 'silverman', 'abg', 'braden', 'downton', 'fpp'].includes(activeCalculator) && subscriptionStatus !== 'active' ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6">
+                <div className="w-16 h-16 bg-amber-50 rounded-3xl border border-amber-200 flex items-center justify-center animate-pulse">
+                  <Lock className="w-8 h-8 text-amber-600" />
+                </div>
+                <div className="space-y-2 max-w-md">
+                  <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-xl text-[10px] font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    Herramienta Diagnóstica Premium
+                  </div>
+                  <h3 className="text-lg font-extrabold text-slate-800">
+                    Acceso Restringido
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed px-4">
+                    Esta calculadora y escala clínica está disponible únicamente en el plan Premium de Enfermería NNN. Desbloquea acceso completo e ilimitado para ti.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPaywallModal(true)}
+                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer font-sans"
+                >
+                  Obtener Plan Premium
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1">
+                {activeCalculator === 'glasgow' && renderGlasgowCalculator()}
+                {activeCalculator === 'apgar' && renderApgarCalculator()}
+                {activeCalculator === 'silverman' && renderSilvermanCalculator()}
+                {activeCalculator === 'bmi' && renderBmiCalculator()}
+                {activeCalculator === 'fpp' && renderFppCalculator()}
+                {activeCalculator === 'dose' && renderDoseCalculator()}
+                {activeCalculator === 'abg' && renderAbgCalculator()}
+                {activeCalculator === 'braden' && renderBradenCalculator()}
+                {activeCalculator === 'downton' && renderDowntonCalculator()}
+              </div>
+            )}
+          </section>
+        </main>
+      )}
+
+      {/* PRINT VIEW (Active Workspace) */}
+      {analysisResult && (
+        <div className="print-view hidden print:block p-8 bg-white text-slate-900 font-sans text-xs">
+          <div className="text-center space-y-1 mb-6">
+            <h1 className="text-lg font-extrabold uppercase tracking-wider text-slate-855">Plan de Cuidados de Enfermería</h1>
+            <p className="text-[10px] text-slate-500 uppercase font-bold">Taxonomías Oficiales NANDA-I, NOC & NIC</p>
+          </div>
+
+          <div className="border border-slate-300 rounded-xl p-4 mb-6 grid grid-cols-2 gap-4 bg-slate-50">
+            <div>
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Paciente</span>
+              <span className="text-sm font-extrabold text-slate-800">{patientName || "Paciente Anónimo"}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Fecha de Emisión</span>
+              <span className="text-sm font-extrabold text-slate-800">{new Date().toLocaleDateString('es-ES')}</span>
+            </div>
+          </div>
+
+          <table className="w-full border-collapse border border-slate-300 rounded-xl overflow-hidden mb-6">
+            <thead>
+              <tr className="bg-slate-100 text-slate-700 text-left text-[10px] uppercase font-bold">
+                <th className="border border-slate-300 p-3 w-1/3">Diagnóstico NANDA-I</th>
+                <th className="border border-slate-300 p-3 w-1/3">Resultados NOC</th>
+                <th className="border border-slate-300 p-3 w-1/3">Intervenciones NIC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top text-slate-800 leading-relaxed">
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-indigo-700">CÓD: {analysisResult.nandaCode}</div>
+                  <div className="font-bold text-[13px]">{analysisResult.nandaName}</div>
+                  <div className="text-[10px] text-slate-500 italic">"{analysisResult.definition}"</div>
+                  {chosenFactors.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Factores Relacionados</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {chosenFactors.map((f, i) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-emerald-700">CÓD: {analysisResult.nocCode}</div>
+                  <div className="font-bold text-[13px]">{analysisResult.nocName}</div>
+                  {chosenIndicators.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Indicadores Seleccionados</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {chosenIndicators.map((code, idx) => {
+                          const indObj = analysisResult.nocIndicators?.find((ind: any) => ind.code === code);
+                          return <li key={idx}>{indObj ? `${indObj.name} (CÓD: ${indObj.code})` : code}</li>;
+                        })}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-indigo-650">CÓD: {analysisResult.nicCode}</div>
+                  <div className="font-bold text-[13px]">{analysisResult.nicName}</div>
+                  {chosenActivities.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Actividades Seleccionadas</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {chosenActivities.map((act, idx) => (
+                          <li key={idx}>{act}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {clinicalNote && (
+            <div className="border border-slate-300 rounded-xl p-4 bg-slate-50 space-y-2 page-break-avoid">
+              <span className="font-bold text-[9px] uppercase text-slate-500 block">Nota de Evolución Clínico (SOAPIE)</span>
+              <pre className="font-mono text-xs whitespace-pre-wrap leading-relaxed text-slate-800">
+                {clinicalNote}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PRINT VIEW (Saved Plan Details) */}
+      {selectedPlanDetails && (
+        <div className="print-view hidden print:block p-8 bg-white text-slate-900 font-sans text-xs">
+          <div className="text-center space-y-1 mb-6">
+            <h1 className="text-lg font-extrabold uppercase tracking-wider text-slate-800">Plan de Cuidados de Enfermería</h1>
+            <p className="text-[10px] text-slate-500 uppercase font-bold">Taxonomías Oficiales NANDA-I, NOC & NIC</p>
+          </div>
+
+          <div className="border border-slate-300 rounded-xl p-4 mb-6 grid grid-cols-2 gap-4 bg-slate-50">
+            <div>
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Paciente</span>
+              <span className="text-sm font-extrabold text-slate-800">{selectedPlanDetails.patientName}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Fecha de Creación</span>
+              <span className="text-sm font-extrabold text-slate-800">
+                {selectedPlanDetails.createdAt ? new Date(selectedPlanDetails.createdAt._seconds ? selectedPlanDetails.createdAt._seconds * 1000 : (selectedPlanDetails.createdAt.seconds ? selectedPlanDetails.createdAt.seconds * 1000 : selectedPlanDetails.createdAt)).toLocaleDateString('es-ES') : ''}
+              </span>
+            </div>
+          </div>
+
+          <table className="w-full border-collapse border border-slate-300 rounded-xl overflow-hidden mb-6">
+            <thead>
+              <tr className="bg-slate-100 text-slate-700 text-left text-[10px] uppercase font-bold">
+                <th className="border border-slate-300 p-3 w-1/3">Diagnóstico NANDA-I</th>
+                <th className="border border-slate-300 p-3 w-1/3">Resultados NOC</th>
+                <th className="border border-slate-300 p-3 w-1/3">Intervenciones NIC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top text-slate-800 leading-relaxed">
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-indigo-700">CÓD: {selectedPlanDetails.nandaCode}</div>
+                  <div className="font-bold text-[13px]">{selectedPlanDetails.nandaName}</div>
+                  {selectedPlanDetails.relatedFactors && selectedPlanDetails.relatedFactors.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Factores Relacionados</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {selectedPlanDetails.relatedFactors.map((f: string, i: number) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-emerald-700">CÓD: {selectedPlanDetails.nocCode}</div>
+                  <div className="font-bold text-[13px]">{selectedPlanDetails.nocName}</div>
+                  {selectedPlanDetails.nocIndicators && selectedPlanDetails.nocIndicators.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Indicadores Seleccionados</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {selectedPlanDetails.nocIndicators.map((ind: string, idx: number) => (
+                          <li key={idx}>{ind}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-indigo-650">CÓD: {selectedPlanDetails.nicCode}</div>
+                  <div className="font-bold text-[13px]">{selectedPlanDetails.nicName}</div>
+                  {selectedPlanDetails.nicActivities && selectedPlanDetails.nicActivities.length > 0 && (
+                    <div className="pt-2 border-t border-slate-150">
+                      <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Actividades Seleccionadas</span>
+                      <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                        {selectedPlanDetails.nicActivities.map((act: string, idx: number) => (
+                          <li key={idx}>{act}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {selectedPlanDetails.evolutionNote && (
+            <div className="border border-slate-300 rounded-xl p-4 bg-slate-50 space-y-2 page-break-avoid">
+              <span className="font-bold text-[9px] uppercase text-slate-500 block">Nota de Evolución Clínico (SOAPIE)</span>
+              <pre className="font-mono text-xs whitespace-pre-wrap leading-relaxed text-slate-800">
+                {selectedPlanDetails.evolutionNote}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Subtle page footer */}
+      <footer className="py-6 border-t border-slate-200/60 text-center bg-white mt-12 no-print">
+        <p className="text-[10px] text-slate-405 font-bold uppercase tracking-wider">
+          Enfermería NNN • Taxonomías NANDA-I 2024-2026, NOC 7ª Ed., NIC 8ª Ed.
+        </p>
+      </footer>
+
+      </div>
+    )}
+
+      {/* 1. AUTH MODAL */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl max-w-sm w-full overflow-hidden p-6 space-y-6 relative animate-scale-up">
+            
+            <button
+              onClick={() => {
+                setShowAuthModal(false);
+                setAuthError('');
+              }}
+              className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-base shadow-lg shadow-indigo-600/20 mx-auto">
+                NNN
+              </div>
+              <h3 className="text-base font-extrabold text-slate-800">
+                {authMode === 'login' ? 'Iniciar Sesión NNN' : 'Crear Cuenta NNN'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {authMode === 'login' 
+                  ? 'Accede para sincronizar tus planes e IA premium' 
+                  : 'Regístrate para obtener tu plan de cuidados de enfermería'}
+              </p>
+            </div>
+
+            {/* Toggle tabs */}
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setAuthMode('login')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  authMode === 'login' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Ingresar
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('register')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  authMode === 'register' ? 'bg-white text-indigo-650 shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Registrarse
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Correo Electrónico</label>
+                <input
+                  type="email"
+                  required
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="nombre@ejemplo.com"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Contraseña</label>
+                <input
+                  type="password"
+                  required
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 text-slate-800"
+                />
+              </div>
+
+              {authError && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-700 px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{authError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-xs hover:bg-indigo-700 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-600/10"
+              >
+                {authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </button>
+            </form>
+
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthError('');
+                }}
+                className="text-[11px] text-indigo-600 hover:text-indigo-700 font-bold cursor-pointer font-sans"
+              >
+                {authMode === 'login' ? '¿No tienes cuenta? Regístrate aquí' : '¿Ya tienes una cuenta? Inicia sesión'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. PAYWALL MODAL */}
+      {showPaywallModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-6 relative animate-scale-up">
+            
+            <button
+              onClick={() => setShowPaywallModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-xl text-[10px] font-bold mx-auto">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Plan Premium NNN
+              </div>
+              <h3 className="text-lg font-extrabold text-slate-800">
+                Desbloquea el Asistente de IA
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed px-4">
+                Genera mapeos automáticos de cuidados y asocia diagnósticos oficiales de NANDA-I, NOC y NIC asistidos por inteligencia artificial.
+              </p>
+            </div>
+
+            {/* Premium Benefits List */}
+            <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-start gap-2.5 text-xs text-slate-700">
+                <span className="text-emerald-500 font-bold mt-0.5">✓</span>
+                <div>
+                  <p className="font-bold">Analizador de Síntomas por IA</p>
+                  <p className="text-[10px] text-slate-450 leading-tight">Introduce síntomas libres y obtén mapeos clínicos inteligentes.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2.5 text-xs text-slate-700">
+                <span className="text-emerald-500 font-bold mt-0.5">✓</span>
+                <div>
+                  <p className="font-bold">Búsqueda Avanzada Grounded</p>
+                  <p className="text-[10px] text-slate-450 leading-tight">Mapea NOC y NIC validados con búsquedas web oficiales en tiempo real.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2.5 text-xs text-slate-700">
+                <span className="text-emerald-500 font-bold mt-0.5">✓</span>
+                <div>
+                  <p className="font-bold">Gestión de Suscripción Flexible</p>
+                  <p className="text-[10px] text-slate-450 leading-tight">Cancela o cambia de plan en cualquier momento vía Stripe Billing Portal.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Plans Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Plan Mensual */}
+              <div className="border border-slate-200 hover:border-indigo-400 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative group">
+                <div>
+                  <h4 className="font-extrabold text-slate-800 text-xs">Mensual</h4>
+                  <p className="text-[10px] text-slate-400">Facturación mensual</p>
+                  <div className="mt-2 flex items-baseline gap-1 text-slate-800">
+                    <span className="text-2xl font-extrabold">$3</span>
+                    <span className="text-xs font-bold text-slate-450">USD/mes</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleSubscribe('monthly')}
+                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-[10px] transition-all cursor-pointer active:scale-95 font-sans"
+                >
+                  Elegir Mensual
+                </button>
+              </div>
+
+              {/* Plan Anual */}
+              <div className="border-2 border-indigo-600 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative bg-indigo-50/20">
+                <span className="absolute -top-2.5 left-4 bg-indigo-600 text-white text-[8px] uppercase tracking-widest font-extrabold px-2 py-0.5 rounded-md shadow-sm">
+                  MEJOR PRECIO
+                </span>
+                <div>
+                  <h4 className="font-extrabold text-slate-800 text-xs">Anual</h4>
+                  <p className="text-[10px] text-indigo-600 font-bold">Ahorra 72% en el año</p>
+                  <div className="mt-2 flex items-baseline gap-1 text-slate-800">
+                    <span className="text-2xl font-extrabold">$10</span>
+                    <span className="text-xs font-bold text-slate-450">USD/año</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleSubscribe('yearly')}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-[10px] transition-all cursor-pointer active:scale-95 shadow-md shadow-indigo-600/10 font-sans"
+                >
+                  Elegir Anual
+                </button>
+              </div>
+
+            </div>
+
+            <div className="text-center space-y-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowPaywallModal(false)}
+                className="text-[11px] text-slate-500 hover:text-slate-800 font-bold cursor-pointer underline font-sans"
+              >
+                Seguir en el Plan Gratuito (Búsqueda local offline)
+              </button>
+              <p className="text-[9px] text-slate-400">
+                Pago seguro encriptado procesado por Stripe. Facturación recurrente. Cancela cuando quieras.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 3. SAVED PLAN DETAILS MODAL */}
+      {selectedPlanDetails && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden p-6 space-y-6 relative animate-scale-up max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => setSelectedPlanDetails(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-5">
+              <div>
+                <span className="text-[9px] font-bold font-mono px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg uppercase">
+                  Plan de Cuidados Guardado
+                </span>
+                <h3 className="text-lg font-extrabold text-slate-800 mt-2 leading-tight">
+                  Paciente: {selectedPlanDetails.patientName}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold mt-1">
+                  Guardado el: {selectedPlanDetails.createdAt ? new Date(selectedPlanDetails.createdAt._seconds ? selectedPlanDetails.createdAt._seconds * 1000 : (selectedPlanDetails.createdAt.seconds ? selectedPlanDetails.createdAt.seconds * 1000 : selectedPlanDetails.createdAt)).toLocaleString('es-ES') : 'Fecha de creación desconocida'}
+                </p>
+              </div>
+
+              <div className="h-px bg-slate-150"></div>
+
+              {/* NANDA-NOC-NIC Grid */}
+              <div className="space-y-4">
+                {/* NANDA */}
+                <div className="bg-amber-50/20 border border-amber-250 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-amber-50 text-amber-800 rounded">DIAGNÓSTICO NANDA-I</span>
+                  <h4 className="text-xs font-extrabold text-slate-800 leading-tight mt-1">{selectedPlanDetails.nandaCode} - {selectedPlanDetails.nandaName}</h4>
+                </div>
+
+                {/* NOC */}
+                {selectedPlanDetails.nocName && (
+                  <div className="bg-emerald-50/20 border border-emerald-250 rounded-2xl p-4 space-y-3">
+                    <div>
+                      <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-emerald-50 text-emerald-800 rounded">RESULTADO NOC</span>
+                      <h4 className="text-xs font-extrabold text-slate-800 leading-tight mt-1">{selectedPlanDetails.nocCode} - {selectedPlanDetails.nocName}</h4>
+                    </div>
+                    {selectedPlanDetails.nocIndicators && selectedPlanDetails.nocIndicators.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-bold text-slate-450 uppercase">Indicadores Seleccionados</p>
+                        <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                          {selectedPlanDetails.nocIndicators.map((ind: string, idx: number) => (
+                            <li key={idx} className="leading-tight">{ind}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* NIC */}
+                {selectedPlanDetails.nicName && (
+                  <div className="bg-indigo-50/20 border border-indigo-150 rounded-2xl p-4 space-y-3">
+                    <div>
+                      <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-indigo-50 text-indigo-850 rounded">INTERVENCIÓN NIC</span>
+                      <h4 className="text-xs font-extrabold text-slate-800 leading-tight mt-1">{selectedPlanDetails.nicCode} - {selectedPlanDetails.nicName}</h4>
+                    </div>
+                    {selectedPlanDetails.nicActivities && selectedPlanDetails.nicActivities.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-bold text-slate-455 uppercase">Actividades Seleccionadas</p>
+                        <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                          {selectedPlanDetails.nicActivities.map((act: string, idx: number) => (
+                            <li key={idx} className="leading-tight">{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* SOAPIE / Evolution Note */}
+                {selectedPlanDetails.evolutionNote && (
+                  <div className="bg-slate-50 border border-slate-250 rounded-2xl p-4 space-y-2">
+                    <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded">NOTA DE EVOLUCIÓN (SOAPIE)</span>
+                    <pre className="text-xs bg-slate-900 border border-slate-800 text-slate-200 p-4.5 rounded-xl overflow-x-auto whitespace-pre-wrap font-mono leading-relaxed max-h-56 shadow-inner">
+                      {selectedPlanDetails.evolutionNote}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-150">
+              <button
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Printer className="w-4 h-4" /> Exportar / Imprimir PDF
+              </button>
+              <button
+                onClick={() => setSelectedPlanDetails(null)}
+                className="px-4.5 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </ErrorBoundary>

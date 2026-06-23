@@ -60,5 +60,61 @@
       "Instruir al paciente sobre la administración de analgésicos si corresponde y métodos no farmacológicos de alivio."
     ],
     "justification": "Vínculo oficial obtenido mediante búsqueda IA y validado con taxonomía."
+  },
+  "00132": {
+    "nandaCode": "00132",
+    "nandaName": "Dolor agudo",
+    "nocCode": "2102",
+    "nocName": "Nivel del dolor",
+    "nocIndicators": [
+      {
+        "code": "210201",
+        "name": "Dolor referido"
+      },
+      {
+        "code": "210202",
+        "name": "Expresiones faciales de dolor"
+      },
+      {
+        "code": "210203",
+        "name": "Duración de los episodios de dolor"
+      }
+    ],
+    "nicCode": "1400",
+    "nicName": "Manejo del dolor",
+    "nicActivities": [
+      "Realizar una valoración exhaustiva del dolor que incluya localización, características, aparición, duración, frecuencia e intensidad.",
+      "Asegurar que el paciente reciba atención analgésica oportuna.",
+      "Instruir al paciente sobre la administración de analgésicos si corresponde y métodos no farmacológicos de alivio."
+    ],
+    "justification": "Asociación local offline mediante coincidencia de palabras clave por faltar conexión o límite de IA."
+  },
+  "00262": {
+    "nandaCode": "00262",
+    "nandaName": "Preparación para mejorar la alfabetización en salud",
+    "nocCode": "1823",
+    "nocName": "Conocimiento: fomento de la salud",
+    "nocIndicators": [
+      {
+        "code": "182301",
+        "name": "Describe pautas dietéticas saludables"
+      },
+      {
+        "code": "182308",
+        "name": "Especifica programas de inmunizaciones idóneos"
+      },
+      {
+        "code": "182315",
+        "name": "Describe técnicas de manejo efectivo del estrés"
+      }
+    ],
+    "nicCode": "5510",
+    "nicName": "Educación para la salud",
+    "nicActivities": [
+      "Diseñar programas de autocuidado específicos conjuntos con el paciente.",
+      "Instruir sobre rutinas higiénicas, lavado de alimentos y prevención general.",
+      "Fomentar la autoconfianza y la resiliencia en situaciones sanitarias complejas."
+    ],
+    "justification": "Asociación local offline mediante coincidencia de palabras clave por faltar conexión o límite de IA."
   }
 }

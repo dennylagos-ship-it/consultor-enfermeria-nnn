@@ -5,8 +5,41 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, findBestNoc, findBestNic } from "./src/data";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore, Timestamp, FieldValue } from "firebase-admin/firestore";
+import Stripe from "stripe";
 
 dotenv.config();
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_mockKey", {
+  apiVersion: "2023-10-16" as any,
+});
+
+// Initialize Firebase Admin
+const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY
+  ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+  : undefined;
+
+let isFirebaseConfigured = false;
+if (firebasePrivateKey && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+  try {
+    initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: firebasePrivateKey,
+      }),
+    });
+    isFirebaseConfigured = true;
+    console.log("[FirebaseAdmin] Inicializado correctamente.");
+  } catch (err: any) {
+    console.error("[FirebaseAdmin] Error al inicializar:", err.message || err);
+  }
+} else {
+  console.warn("[FirebaseAdmin] Variables de entorno de Firebase faltantes. Se usará el modo Mock/Desarrollo.");
+}
 
 // Fallback database for when GEMINI_API_KEY is not configured or in case of errors
 const FALLBACK_ANALYSES = [
@@ -560,12 +593,250 @@ Devuelve la respuesta en formato JSON estrictamente válido, sin envolverlo en b
   return localMapping;
 }
 
+interface AuthenticatedRequest extends express.Request {
+  user?: {
+    uid: string;
+    email?: string;
+    subscriptionStatus: "free" | "active" | "canceled" | "past_due";
+  };
+}
+
+async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  // If Firebase is not configured, bypass auth (development mock mode)
+  if (!isFirebaseConfigured) {
+    console.log("[AuthMiddleware] Firebase no configurado. Bypass de autenticación (Mock Mode).");
+    (req as AuthenticatedRequest).user = {
+      uid: "mock_user_123",
+      email: "mock@enfermeria.com",
+      subscriptionStatus: "active", // active in mock
+    };
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No autorizado. Token Bearer faltante." });
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decodedToken = await getAuth().verifyIdToken(token);
+    const uid = decodedToken.uid;
+
+    const userDocRef = getFirestore().collection("users").doc(uid);
+    const userDoc = await userDocRef.get();
+    
+    let subscriptionStatus: "free" | "active" | "canceled" | "past_due" = "free";
+    if (userDoc.exists) {
+      const data = userDoc.data();
+      subscriptionStatus = data?.subscriptionStatus || "free";
+    } else {
+      await userDocRef.set({
+        uid,
+        email: decodedToken.email || "",
+        subscriptionStatus: "free",
+        createdAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+
+    (req as AuthenticatedRequest).user = {
+      uid,
+      email: decodedToken.email,
+      subscriptionStatus,
+    };
+    
+    next();
+  } catch (err: any) {
+    console.error("[AuthMiddleware] Error verificando token:", err.message || err);
+    return res.status(401).json({ error: "Sesión inválida o expirada." });
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
+  // Stripe Webhook handler (uses raw body for signature verification)
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req: express.Request, res: express.Response) => {
+    const sig = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    let event;
+
+    try {
+      if (webhookSecret && sig) {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } else {
+        // Fallback for testing without signature validation (development only)
+        console.warn("[StripeWebhook] No webhook secret configured. Running in unverified test mode.");
+        event = JSON.parse(req.body.toString());
+      }
+    } catch (err: any) {
+      console.error("[StripeWebhook] Error verificando firma:", err.message || err);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    console.log(`[StripeWebhook] Recibido evento: ${event.type}`);
+
+    try {
+      // Handle the subscription events
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as any;
+        const uid = session.metadata?.firebaseUid;
+        const customerId = session.customer;
+        const subscriptionId = session.subscription;
+
+        if (uid && isFirebaseConfigured) {
+          // Fetch subscription to check duration/price
+          const subscription = (await stripe.subscriptions.retrieve(subscriptionId)) as any;
+          const priceId = subscription.items.data[0].price.id;
+          
+          let plan: "monthly" | "yearly" = "monthly";
+          if (priceId === process.env.STRIPE_PRICE_YEARLY) {
+            plan = "yearly";
+          }
+
+          await getFirestore().collection("users").doc(uid).set({
+            stripeCustomerId: customerId,
+            stripeSubscriptionId: subscriptionId,
+            subscriptionStatus: "active",
+            plan,
+            subscriptionExpiresAt: Timestamp.fromMillis(subscription.current_period_end * 1000),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          console.log(`[StripeWebhook] Usuario ${uid} activado con plan ${plan}`);
+        }
+      } else if (
+        event.type === "customer.subscription.updated" || 
+        event.type === "customer.subscription.deleted"
+      ) {
+        const subscription = event.data.object as any;
+        const customerId = subscription.customer;
+        const status = subscription.status; // e.g. active, past_due, canceled, unpaid
+
+        if (isFirebaseConfigured) {
+          const usersSnap = await getFirestore()
+            .collection("users")
+            .where("stripeCustomerId", "==", customerId)
+            .get();
+
+          if (!usersSnap.empty) {
+            const userDoc = usersSnap.docs[0];
+            let activeStatus: "active" | "free" | "canceled" | "past_due" = "free";
+            if (status === "active") {
+              activeStatus = "active";
+            } else if (status === "past_due") {
+              activeStatus = "past_due";
+            } else {
+              activeStatus = "free"; // downgrade to free if canceled or unpaid
+            }
+
+            await userDoc.ref.update({
+              subscriptionStatus: activeStatus,
+              subscriptionExpiresAt: Timestamp.fromMillis(subscription.current_period_end * 1000),
+              updatedAt: FieldValue.serverTimestamp(),
+            });
+
+            console.log(`[StripeWebhook] Suscripción actualizada para cliente ${customerId} a ${activeStatus}`);
+          }
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error("[StripeWebhook] Error procesando evento:", err.message || err);
+      res.status(500).send("Error interno de procesamiento de webhook.");
+    }
+  });
+
   app.use(express.json());
-  app.post("/api/search-taxonomy", async (req, res) => {
+
+  // Create Stripe Checkout Session
+  app.post("/api/stripe/create-checkout-session", requireAuth, async (req: express.Request, res: express.Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const { planType } = req.body; // 'monthly' | 'yearly'
+    const uid = authReq.user?.uid;
+    const email = authReq.user?.email;
+
+    if (!uid) {
+      return res.status(401).json({ error: "Usuario no autenticado." });
+    }
+
+    try {
+      let priceId = process.env.STRIPE_PRICE_MONTHLY;
+      if (planType === "yearly") {
+        priceId = process.env.STRIPE_PRICE_YEARLY;
+      }
+
+      if (!priceId) {
+        // Fallback for development if prices not set in env yet
+        console.warn("[Stripe] STRIPE_PRICE_MONTHLY o STRIPE_PRICE_YEARLY no configurados. Usando ID mock.");
+        priceId = planType === "yearly" ? "price_yearly_mock" : "price_monthly_mock";
+      }
+
+      const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        customer_email: email,
+        metadata: {
+          firebaseUid: uid,
+        },
+        success_url: `${appUrl}/?session_id={CHECKOUT_SESSION_ID}&payment=success`,
+        cancel_url: `${appUrl}/?payment=cancel`,
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      console.error("[Stripe] Error creando Checkout Session:", err.message || err);
+      res.status(500).json({ error: "No se pudo crear la sesión de pago." });
+    }
+  });
+
+  // Create Stripe Customer Portal Session (to manage/cancel subscription)
+  app.post("/api/stripe/create-portal-session", requireAuth, async (req: express.Request, res: express.Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const uid = authReq.user?.uid;
+
+    if (!uid || !isFirebaseConfigured) {
+      return res.status(401).json({ error: "Acceso denegado o Firebase inactivo." });
+    }
+
+    try {
+      const userDoc = await getFirestore().collection("users").doc(uid).get();
+      const customerId = userDoc.data()?.stripeCustomerId;
+
+      if (!customerId) {
+        return res.status(400).json({ error: "No tienes una suscripción activa de Stripe registrada." });
+      }
+
+      const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${appUrl}/`,
+      });
+
+      res.json({ url: session.url });
+    } catch (err: any) {
+      console.error("[Stripe] Error creando Portal Session:", err.message || err);
+      res.status(500).json({ error: "No se pudo acceder al portal de Stripe." });
+    }
+  });
+  app.post("/api/search-taxonomy", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
     const { query, type } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -752,7 +1023,11 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
     }
   });
 
-  app.post("/api/get-nanda-mapping", async (req, res) => {
+  app.post("/api/get-nanda-mapping", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
     const { nandaCode, nandaName } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -772,7 +1047,11 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
   app.use(express.json());
 
   // API Route for Gemini Symptoms Analysis
-  app.post("/api/analyze", async (req, res) => {
+  app.post("/api/analyze", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
     const { symptoms, serviceContext } = req.body;
 
     if (!symptoms || typeof symptoms !== "string" || symptoms.trim() === "") {
@@ -897,6 +1176,222 @@ Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin pr
       // Failover safely to local analytics to maintain a smooth experience
       const fallback = getFallback(symptoms);
       res.json({ ...fallback, isFallback: true, errorMsg: error.message || "Error contactando a la inteligencia artificial." });
+    }
+  });
+
+  // GET: Retrieve all saved plans for the authenticated user
+  app.get("/api/plans", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    const uid = authReq.user?.uid;
+    if (!uid || !isFirebaseConfigured) {
+      return res.status(400).json({ error: "Acceso denegado o Firebase inactivo." });
+    }
+    try {
+      const snapshot = await getFirestore()
+        .collection("users")
+        .doc(uid)
+        .collection("plans")
+        .orderBy("createdAt", "desc")
+        .get();
+      const plans = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json({ plans });
+    } catch (err: any) {
+      console.error("Error retrieving plans:", err.message || err);
+      res.status(500).json({ error: "No se pudieron obtener los planes." });
+    }
+  });
+
+  // POST: Save a new care plan to Firestore
+  app.post("/api/plans", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    const uid = authReq.user?.uid;
+    if (!uid || !isFirebaseConfigured) {
+      return res.status(400).json({ error: "Acceso denegado o Firebase inactivo." });
+    }
+    const { patientName, nandaCode, nandaName, nocCode, nocName, nocIndicators, nicCode, nicName, nicActivities, evolutionNote } = req.body;
+    try {
+      const docRef = await getFirestore()
+        .collection("users")
+        .doc(uid)
+        .collection("plans")
+        .add({
+          patientName: patientName || "Paciente sin nombre",
+          nandaCode: nandaCode || "",
+          nandaName: nandaName || "",
+          nocCode: nocCode || "",
+          nocName: nocName || "",
+          nocIndicators: nocIndicators || [],
+          nicCode: nicCode || "",
+          nicName: nicName || "",
+          nicActivities: nicActivities || [],
+          evolutionNote: evolutionNote || "",
+          createdAt: Timestamp.now(),
+        });
+      res.json({ success: true, id: docRef.id });
+    } catch (err: any) {
+      console.error("Error saving plan:", err.message || err);
+      res.status(500).json({ error: "No se pudo guardar el plan." });
+    }
+  });
+
+  // DELETE: Delete a saved plan
+  app.delete("/api/plans/:id", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    const uid = authReq.user?.uid;
+    const { id } = req.params;
+    if (!uid || !isFirebaseConfigured) {
+      return res.status(400).json({ error: "Acceso denegado o Firebase inactivo." });
+    }
+    try {
+      await getFirestore()
+        .collection("users")
+        .doc(uid)
+        .collection("plans")
+        .doc(id)
+        .delete();
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error deleting plan:", err.message || err);
+      res.status(500).json({ error: "No se pudo eliminar el plan." });
+    }
+  });
+
+  // POST: Generate SOAPIE evolution note using Gemini
+  app.post("/api/ai/generate-soapie", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
+    const { nandaName, nocName, nicName, activities } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    const mockSoapie = `S: Paciente refiere molestias y síntomas asociados a su estado actual.
+O: Se observa constante vigilancia del estado general del paciente, signos vitales estables.
+A: Diagnóstico clínico NANDA: "${nandaName || "Deterioro del estado general"}".
+P: Planificado resultado NOC: "${nocName || "Estado general de salud"}".
+I: Ejecutada intervención NIC: "${nicName || "Cuidados de enfermería general"}". Actividades ejecutadas: ${activities ? activities.join(", ") : "Valoración constante"}.
+E: Se evalúa respuesta al plan. Paciente manifiesta estabilidad clínica.`;
+
+    if (!isValidApiKey(apiKey)) {
+      return res.json({ soapie: mockSoapie, isFallback: true });
+    }
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          }
+        }
+      });
+
+      const promptText = `Eres un experto certificado en redacción de notas de evolución de enfermería y taxonomía clínica NNN.
+Redacta una Nota de Evolución completa y formal siguiendo la estructura clásica SOAPIE (Subjetivo, Objetivo, Análisis, Plan, Intervención, Evaluación) en base a los siguientes datos del plan de cuidados:
+- Diagnóstico NANDA: "${nandaName}"
+- Resultado NOC: "${nocName}"
+- Intervención NIC: "${nicName}"
+- Actividades NIC seleccionadas: ${activities ? JSON.stringify(activities) : "no especificadas"}
+
+Formatea la salida claramente estructurada en secciones independientes con las iniciales S, O, A, P, I, E en español. Escribe un texto formal y técnicamente preciso.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: promptText,
+      });
+
+      const responseText = response.text || "";
+      res.json({ soapie: responseText.trim(), isFallback: false });
+    } catch (err: any) {
+      console.warn("[SOAPIE Generation Fallback] Fallback a nota predefinida por error en llamada de IA:", err.message || err);
+      res.json({ soapie: mockSoapie, isFallback: true, errorMsg: err.message });
+    }
+  });
+
+  // POST: Analyze medication risks and map them to NANDA/NOC/NIC
+  app.post("/api/ai/analyze-medication", requireAuth, async (req, res) => {
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.subscriptionStatus !== "active") {
+      return res.status(403).json({ error: "PremiumRequired", message: "Esta función requiere una suscripción activa." });
+    }
+    const { medication } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!medication || typeof medication !== "string" || medication.trim() === "") {
+      return res.status(400).json({ error: "El nombre del medicamento es requerido." });
+    }
+
+    const mockAnalysis = {
+      medication,
+      indications: "Indicaciones generales según vademécum clínico estándar.",
+      nandaDiagnosis: "Riesgo de efectos adversos farmacológicos o alteración fisiológica.",
+      nocOutcome: "Conocimiento: medicación o Control de riesgos.",
+      nicIntervention: "Administración de medicación y Vigilancia del paciente.",
+      activities: [
+        "Verificar la regla de los '5 correctos' antes de la administración del fármaco.",
+        "Monitorear la aparición de reacciones adversas y efectos secundarios comunes.",
+        "Educar al paciente sobre la importancia de la adherencia terapéutica.",
+        "Registrar de forma exacta la dosis, hora y vía en el registro clínico de enfermería."
+      ]
+    };
+
+    if (!isValidApiKey(apiKey)) {
+      return res.json({ analysis: mockAnalysis, isFallback: true });
+    }
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          }
+        }
+      });
+
+      const promptText = `Eres un experto certificado en farmacología y planes de cuidados de enfermería NANDA/NOC/NIC.
+Analiza el siguiente medicamento: "${medication}".
+Proporciona un objeto JSON que contenga:
+1. "indications": Breve indicación principal de uso del fármaco (1 línea).
+2. "nandaDiagnosis": El diagnóstico NANDA de riesgo principal asociado a este fármaco o a sus efectos secundarios más importantes (ej. "Riesgo de sangrado" para anticoagulantes).
+3. "nocOutcome": El resultado NOC oficial más idóneo para monitorizar la efectividad o riesgos del tratamiento.
+4. "nicIntervention": La intervención NIC primordial para la administración o vigilancia clínica del fármaco.
+5. "activities": Una lista de 4 actividades específicas y prácticas de enfermería (NIC) al administrar y monitorear a un paciente bajo este fármaco.
+
+Formato de salida esperado (responde ÚNICAMENTE con esta estructura JSON sin preámbulos ni marcas de formato markdown):
+{
+  "indications": "texto indicación",
+  "nandaDiagnosis": "Diagnóstico NANDA",
+  "nocOutcome": "Resultado NOC",
+  "nicIntervention": "Intervención NIC",
+  "activities": ["actividad 1", "actividad 2", "actividad 3", "actividad 4"]
+}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              indications: { type: Type.STRING },
+              nandaDiagnosis: { type: Type.STRING },
+              nocOutcome: { type: Type.STRING },
+              nicIntervention: { type: Type.STRING },
+              activities: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["indications", "nandaDiagnosis", "nocOutcome", "nicIntervention", "activities"]
+          }
+        }
+      });
+
+      const responseText = response.text || "";
+      const parsed = JSON.parse(responseText.trim());
+      res.json({ analysis: parsed, isFallback: false });
+    } catch (err: any) {
+      console.warn("[Medication Analysis Fallback] Fallback a análisis predefinido por error en llamada de IA:", err.message || err);
+      res.json({ analysis: mockAnalysis, isFallback: true, errorMsg: err.message });
     }
   });
 
