@@ -1738,58 +1738,98 @@ Justificación del plan: ${analysisResult.justification}`;
   };
 
   const renderAbgCalculator = () => {
-    const ph = parseFloat(abgPh) || 0;
-    const pco2 = parseFloat(abgPco2) || 0;
-    const hco3 = parseFloat(abgHco3) || 0;
+    const phVal = abgPh.trim();
+    const pco2Val = abgPco2.trim();
+    const hco3Val = abgHco3.trim();
 
-    let diagnosis = "Valores de gases arteriales normales";
-    let typeClass = "bg-emerald-500 text-white border-emerald-600";
+    let diagnosis = "Por favor ingrese todos los valores (pH, pCO2 y HCO3) para obtener la interpretación clínica.";
+    let typeClass = "bg-slate-50 text-slate-500 border-slate-200/80";
 
-    if (ph > 0 && pco2 > 0 && hco3 > 0) {
-      if (ph < 7.35) {
-        if (pco2 > 45 && hco3 >= 22 && hco3 <= 26) {
-          diagnosis = "Acidosis Respiratoria No Compensada";
-          typeClass = "bg-rose-500 text-white border-rose-600";
-        } else if (pco2 > 45 && hco3 > 26) {
-          diagnosis = "Acidosis Respiratoria Parcialmente Compensada";
-          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
-        } else if (hco3 < 22 && pco2 >= 35 && pco2 <= 45) {
-          diagnosis = "Acidosis Metabólica No Compensada";
-          typeClass = "bg-rose-500 text-white border-rose-600";
-        } else if (hco3 < 22 && pco2 < 35) {
-          diagnosis = "Acidosis Metabólica Parcialmente Compensada";
-          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
-        } else if (pco2 > 45 && hco3 < 22) {
-          diagnosis = "Acidosis Mixta (Respiratoria y Metabólica)";
-          typeClass = "bg-rose-650 text-white border-rose-700";
-        }
-      } else if (ph > 7.45) {
-        if (pco2 < 35 && hco3 >= 22 && hco3 <= 26) {
-          diagnosis = "Alcalosis Respiratoria No Compensada";
-          typeClass = "bg-rose-500 text-white border-rose-600";
-        } else if (pco2 < 35 && hco3 < 22) {
-          diagnosis = "Alcalosis Respiratoria Parcialmente Compensada";
-          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
-        } else if (hco3 > 26 && pco2 >= 35 && pco2 <= 45) {
-          diagnosis = "Alcalosis Metabólica No Compensada";
-          typeClass = "bg-rose-500 text-white border-rose-600";
-        } else if (hco3 > 26 && pco2 > 45) {
-          diagnosis = "Alcalosis Metabólica Parcialmente Compensada";
-          typeClass = "bg-amber-500 text-slate-900 border-amber-600";
-        } else if (pco2 < 35 && hco3 > 26) {
-          diagnosis = "Alcalosis Mixta (Respiratoria y Metabólica)";
-          typeClass = "bg-rose-650 text-white border-rose-700";
-        }
+    if (phVal !== "" && pco2Val !== "" && hco3Val !== "") {
+      const ph = parseFloat(phVal);
+      const pco2 = parseFloat(pco2Val);
+      const hco3 = parseFloat(hco3Val);
+
+      if (isNaN(ph) || isNaN(pco2) || isNaN(hco3) || ph <= 0 || pco2 <= 0 || hco3 <= 0) {
+        diagnosis = "Por favor ingrese valores numéricos válidos y mayores a cero.";
+        typeClass = "bg-rose-50 text-rose-700 border-rose-200";
       } else {
-        if (pco2 > 45 && hco3 > 26) {
-          diagnosis = ph < 7.40 ? "Acidosis Respiratoria Totalmente Compensada" : "Alcalosis Metabólica Totalmente Compensada";
-          typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
-        } else if (pco2 < 35 && hco3 < 22) {
-          diagnosis = ph < 7.40 ? "Acidosis Metabólica Totalmente Compensada" : "Alcalosis Respiratoria Totalmente Compensada";
-          typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250";
+        if (ph < 7.35) {
+          // Acidosis / Acidemia
+          if (pco2 > 45 && hco3 < 22) {
+            diagnosis = "Acidosis Mixta (Respiratoria y Metabólica)";
+            typeClass = "bg-rose-650 text-white border-rose-700 shadow-md";
+          } else if (pco2 > 45) {
+            if (hco3 > 26) {
+              diagnosis = "Acidosis Respiratoria Parcialmente Compensada";
+              typeClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+            } else {
+              diagnosis = "Acidosis Respiratoria No Compensada";
+              typeClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+            }
+          } else if (hco3 < 22) {
+            if (pco2 < 35) {
+              diagnosis = "Acidosis Metabólica Parcialmente Compensada";
+              typeClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+            } else {
+              diagnosis = "Acidosis Metabólica No Compensada";
+              typeClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+            }
+          } else {
+            // Inconsistencia o valores limítrofes
+            diagnosis = "Acidemia (Valores en límites / Inconsistencia clínica)";
+            typeClass = "bg-amber-100 text-amber-850 border-amber-300";
+          }
+        } else if (ph > 7.45) {
+          // Alcalosis / Alcalemia
+          if (pco2 < 35 && hco3 > 26) {
+            diagnosis = "Alcalosis Mixta (Respiratoria y Metabólica)";
+            typeClass = "bg-rose-650 text-white border-rose-700 shadow-md";
+          } else if (pco2 < 35) {
+            if (hco3 < 22) {
+              diagnosis = "Alcalosis Respiratoria Parcialmente Compensada";
+              typeClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+            } else {
+              diagnosis = "Alcalosis Respiratoria No Compensada";
+              typeClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+            }
+          } else if (hco3 > 26) {
+            if (pco2 > 45) {
+              diagnosis = "Alcalosis Metabólica Parcialmente Compensada";
+              typeClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+            } else {
+              diagnosis = "Alcalosis Metabólica No Compensada";
+              typeClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+            }
+          } else {
+            // Inconsistencia o valores limítrofes
+            diagnosis = "Alcalemia (Valores en límites / Inconsistencia clínica)";
+            typeClass = "bg-amber-100 text-amber-850 border-amber-300";
+          }
         } else {
-          diagnosis = "Gases Arteriales Normales (Eje de Equilibrio Ácido-Base)";
-          typeClass = "bg-emerald-500 text-white border-emerald-600";
+          // pH dentro del rango normal (7.35 - 7.45)
+          if (pco2 > 45 && hco3 > 26) {
+            diagnosis = ph < 7.40 ? "Acidosis Respiratoria Totalmente Compensada" : "Alcalosis Metabólica Totalmente Compensada";
+            typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250/80 shadow-sm";
+          } else if (pco2 < 35 && hco3 < 22) {
+            diagnosis = ph < 7.40 ? "Acidosis Metabólica Totalmente Compensada" : "Alcalosis Respiratoria Totalmente Compensada";
+            typeClass = "bg-emerald-50 text-emerald-700 border-emerald-250/80 shadow-sm";
+          } else if (pco2 > 45) {
+            diagnosis = "Compensación en Curso / Tendencia a Acidosis Respiratoria";
+            typeClass = "bg-emerald-50 text-emerald-750 border-emerald-200 shadow-sm";
+          } else if (pco2 < 35) {
+            diagnosis = "Compensación en Curso / Tendencia a Alcalosis Respiratoria";
+            typeClass = "bg-emerald-50 text-emerald-750 border-emerald-200 shadow-sm";
+          } else if (hco3 < 22) {
+            diagnosis = "Compensación en Curso / Tendencia a Acidosis Metabólica";
+            typeClass = "bg-emerald-50 text-emerald-750 border-emerald-200 shadow-sm";
+          } else if (hco3 > 26) {
+            diagnosis = "Compensación en Curso / Tendencia a Alcalosis Metabólica";
+            typeClass = "bg-emerald-50 text-emerald-750 border-emerald-200 shadow-sm";
+          } else {
+            diagnosis = "Gases Arteriales Normales (Eje de Equilibrio Ácido-Base)";
+            typeClass = "bg-emerald-500 text-white border-emerald-600 shadow-md";
+          }
         }
       }
     }
