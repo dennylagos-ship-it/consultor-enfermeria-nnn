@@ -4858,8 +4858,32 @@ Justificación del plan: ${analysisResult.justification}`;
                   </div>
                 </div>
 
+                {/* Patient Name Input */}
+                {pesResult && (
+                  <div className="space-y-1.5 pt-1.5 no-print">
+                    <label className="text-[11px] font-bold text-slate-700 block font-sans">Nombre del Paciente (Para exportar/imprimir)</label>
+                    <input
+                      type="text"
+                      value={patientName}
+                      onChange={(e) => setPatientName(e.target.value)}
+                      placeholder="Ej. Juan Pérez García..."
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-800 font-sans"
+                    />
+                  </div>
+                )}
+
                 {/* Final Buttons */}
-                <div className="pt-4 border-t border-slate-100 flex gap-3">
+                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3 no-print">
+                  <button
+                    onClick={() => {
+                      window.print();
+                    }}
+                    disabled={!pesResult}
+                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.99] transition-all cursor-pointer font-sans"
+                  >
+                    <Printer className="w-4.5 h-4.5 text-slate-500" /> Exportar / Imprimir PDF
+                  </button>
+
                   <button
                     onClick={() => {
                       if (!pesResult) return;
@@ -4917,7 +4941,7 @@ Justificación del plan: ${analysisResult.justification}`;
                     disabled={!pesResult}
                     className="flex-1 py-3 bg-indigo-650 hover:bg-indigo-750 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] transition-all cursor-pointer font-sans"
                   >
-                    <CopyCheck className="w-4 h-4" /> Copiar Plan de Cuidados Completo
+                    <CopyCheck className="w-4 h-4" /> Copiar Plan de Cuidados
                   </button>
                 </div>
               </div>
@@ -6646,7 +6670,7 @@ Justificación del plan: ${analysisResult.justification}`;
       {activeTab === 'pes' && renderPesBuilder()}
 
       {/* PRINT VIEW (Active Workspace) */}
-      {analysisResult && (
+      {activeTab !== 'pes' && analysisResult && (
         <div className="print-view hidden print:block p-8 bg-white text-slate-900 font-sans text-xs">
           <div className="text-center space-y-1 mb-6">
             <h1 className="text-lg font-extrabold uppercase tracking-wider text-slate-855">Plan de Cuidados de Enfermería</h1>
@@ -6727,6 +6751,106 @@ Justificación del plan: ${analysisResult.justification}`;
               <span className="font-bold text-[9px] uppercase text-slate-500 block">Nota de Evolución Clínico (SOAPIE)</span>
               <pre className="font-mono text-xs whitespace-pre-wrap leading-relaxed text-slate-800">
                 {clinicalNote}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PRINT VIEW (PES Builder Plan) */}
+      {activeTab === 'pes' && pesResult && (
+        <div className="print-view hidden print:block p-8 bg-white text-slate-900 font-sans text-xs">
+          <div className="text-center space-y-1 mb-6">
+            <h1 className="text-lg font-extrabold uppercase tracking-wider text-slate-800 font-sans">Plan de Cuidados de Enfermería (PES)</h1>
+            <p className="text-[10px] text-slate-500 uppercase font-bold font-sans">Taxonomías Oficiales NANDA-I, NOC & NIC</p>
+          </div>
+
+          <div className="border border-slate-300 rounded-xl p-4 mb-6 grid grid-cols-2 gap-4 bg-slate-50 font-sans">
+            <div>
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Paciente</span>
+              <span className="text-sm font-extrabold text-slate-800">{patientName || "Paciente Anónimo"}</span>
+            </div>
+            <div className="text-right">
+              <span className="font-bold text-slate-500 block uppercase text-[9px]">Fecha de Emisión</span>
+              <span className="text-sm font-extrabold text-slate-800">{new Date().toLocaleDateString('es-ES')}</span>
+            </div>
+          </div>
+
+          <table className="w-full border-collapse border border-slate-300 rounded-xl overflow-hidden mb-6 font-sans">
+            <thead>
+              <tr className="bg-slate-100 text-slate-700 text-left text-[10px] uppercase font-bold">
+                <th className="border border-slate-300 p-3 w-1/3">Diagnóstico NANDA-I (PES)</th>
+                <th className="border border-slate-300 p-3 w-1/3">Resultados NOC</th>
+                <th className="border border-slate-300 p-3 w-1/3">Intervenciones NIC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="align-top text-slate-800 leading-relaxed">
+                <td className="border border-slate-300 p-3 space-y-2">
+                  <div className="font-extrabold text-indigo-700">CÓD: {pesSelectedNanda?.code}</div>
+                  <div className="font-bold text-[13px]">{pesResult.formattedDiagnosis}</div>
+                  <div className="text-[10px] text-slate-500 italic">"{pesSelectedNanda?.definition}"</div>
+                  <div className="pt-2 border-t border-slate-150 space-y-1 text-[10px]">
+                    <span className="font-bold text-slate-500 block uppercase text-[8px]">Desglose PES:</span>
+                    <div>• <b>Problema (P):</b> {pesResult.problem}</div>
+                    {pesType !== 'promotion' && <div>• <b>Etiología (E):</b> {pesResult.etiology}</div>}
+                    {pesType !== 'risk' && <div>• <b>Signos/Síntomas (S):</b> {pesResult.signsSymptoms}</div>}
+                  </div>
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  {pesSelectedNoc ? (
+                    <>
+                      <div className="font-extrabold text-emerald-700">CÓD: {pesSelectedNoc.code}</div>
+                      <div className="font-bold text-[13px]">{pesSelectedNoc.name}</div>
+                      {pesSelectedIndicators.length > 0 && (
+                        <div className="pt-2 border-t border-slate-150">
+                          <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Indicadores Seleccionados</span>
+                          <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                            {pesSelectedIndicators.map((code, idx) => {
+                              const indObj = pesSelectedNoc.indicators?.find((i: any) => i.code === code);
+                              return (
+                                <li key={idx}>
+                                  {indObj ? `${indObj.code} - ${indObj.name}` : code}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-400 italic text-[11px]">No seleccionado</span>
+                  )}
+                </td>
+                <td className="border border-slate-300 p-3 space-y-2">
+                  {pesSelectedNic ? (
+                    <>
+                      <div className="font-extrabold text-indigo-650">CÓD: {pesSelectedNic.code}</div>
+                      <div className="font-bold text-[13px]">{pesSelectedNic.name}</div>
+                      {pesSelectedActivities.length > 0 && (
+                        <div className="pt-2 border-t border-slate-150">
+                          <span className="font-bold text-[9px] uppercase text-slate-400 block mb-1">Actividades Seleccionadas</span>
+                          <ul className="list-disc pl-4 space-y-1 text-[10px]">
+                            {pesSelectedActivities.map((act, idx) => (
+                              <li key={idx}>{act}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-400 italic text-[11px]">No seleccionado</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {pesSoapieResult && (
+            <div className="border border-slate-300 rounded-xl p-4.5 bg-slate-50 space-y-2 page-break-avoid font-sans">
+              <span className="font-bold text-slate-500 block uppercase text-[9px] tracking-wider">Nota de Evolución de Enfermería (SOAPIE)</span>
+              <pre className="text-[11px] font-mono whitespace-pre-wrap leading-relaxed text-slate-800">
+                {pesSoapieResult}
               </pre>
             </div>
           )}
