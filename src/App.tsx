@@ -2468,76 +2468,79 @@ Justificación del plan: ${analysisResult.justification}`;
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col relative">
         
         {/* Premium Glassmorphism Header */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 py-4 px-6 md:px-10 flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 z-40 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-base shadow-lg shadow-indigo-600/20">
+        <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 py-2.5 px-4 md:px-10 flex justify-between items-center sticky top-0 z-40 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-xs md:text-base shadow-md shadow-indigo-600/20">
               NNN
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Consultor Clínico de Cuidados</p>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <p className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-indigo-600">Consultor</p>
               </div>
-              <h1 className="text-lg font-extrabold text-slate-800 tracking-tight">
-                Plataforma Taxonómica NNN <span className="text-slate-400 font-medium text-xs">2024-2026</span>
+              <h1 className="text-xs md:text-lg font-extrabold text-slate-800 tracking-tight">
+                Plataforma NNN <span className="hidden sm:inline text-slate-400 font-medium text-xs">2024-2026</span>
               </h1>
             </div>
           </div>
 
-          {/* Database statistics and offline badge */}
-          <div className="flex flex-wrap items-center gap-3 justify-center">
-            <button
-              onClick={() => setShowLanding(true)}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-indigo-100 flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all font-sans"
+          {/* Right Side: Responsive Actions & Status */}
+          <div className="flex items-center gap-1.5 md:gap-3">
+            {/* Database indicator: Icon-only on mobile, full text on md+ */}
+            <div 
+              title="Base de Datos Offline Lista"
+              className="bg-emerald-50 text-emerald-700 p-1.5 md:px-3 md:py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold border border-emerald-100 flex items-center gap-1 shadow-sm"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              Ver Instrucciones
-            </button>
-
-            <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600">
-              <span>277 NANDA</span>
-              <span className="text-slate-300">•</span>
-              <span>612 NOC</span>
-              <span className="text-slate-300">•</span>
-              <span>614 NIC</span>
+              <Database className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Offline</span>
             </div>
 
-            <span className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-emerald-100 flex items-center gap-1.5 shadow-sm whitespace-nowrap">
-              <Database className="w-3.5 h-3.5" />
-              Base de Datos Offline Lista
-            </span>
+            {/* Ver Instrucciones: Icon-only on mobile, full text on md+ */}
+            <button
+              onClick={() => setShowLanding(true)}
+              title="Ver Instrucciones"
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 p-1.5 md:px-3 md:py-1.5 rounded-xl text-[10px] md:text-[11px] font-bold border border-indigo-100 flex items-center gap-1 shadow-sm cursor-pointer active:scale-95 transition-all font-sans"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Instrucciones</span>
+            </button>
 
-            {/* Light mode friendly user profile widget */}
-            <div className="flex items-center gap-2 border-l border-slate-205 pl-3">
+            {/* User Widget */}
+            <div className="flex items-center gap-1.5 md:gap-2 pl-1.5 md:pl-3 border-l border-slate-200">
               {authLoading ? (
-                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
               ) : user ? (
-                <div className="flex items-center gap-2.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-2xl">
-                  <div className="flex flex-col text-right">
-                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[130px]">{user.email}</span>
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1 md:px-2.5 md:py-1 rounded-xl md:rounded-2xl border border-slate-200/60">
+                  {/* Email & Subscription Type: hidden on mobile */}
+                  <div className="hidden sm:flex flex-col text-right">
+                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[80px] md:max-w-[120px]">{user.email}</span>
                     {subscriptionStatus === 'active' ? (
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-250 w-fit self-end">Premium ★</span>
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 px-1 py-0.5 rounded border border-amber-205 w-fit self-end">Premium ★</span>
                     ) : (
-                      <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 bg-slate-200 px-1 py-0.5 rounded w-fit self-end">Plan Gratuito</span>
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-slate-500 bg-slate-200 px-1 py-0.5 rounded w-fit self-end">Gratuito</span>
                     )}
                   </div>
-                  
+
+                  {/* Plan Action Button: compact on mobile */}
                   {subscriptionStatus === 'active' ? (
                     <button
                       onClick={handleManageSubscription}
-                      className="text-[10px] font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-xl transition-all cursor-pointer font-sans"
+                      className="text-[9px] md:text-[10px] font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-100 px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg md:rounded-xl transition-all cursor-pointer font-sans"
+                      title="Administrar Plan"
                     >
-                      Mi Plan
+                      <span className="hidden sm:inline">Mi Plan</span>
+                      <span className="sm:hidden">Plan</span>
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowPaywallModal(true)}
-                      className="text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-amber-600 text-white px-2.5 py-1 rounded-xl shadow-sm hover:from-amber-600 hover:to-amber-700 transition-all cursor-pointer font-sans"
+                      className="text-[9px] md:text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-amber-600 text-white px-2 py-0.5 md:px-2.5 md:py-1 rounded-lg md:rounded-xl shadow-sm hover:from-amber-600 hover:to-amber-700 transition-all cursor-pointer font-sans"
                     >
                       Mejorar
                     </button>
                   )}
 
+                  {/* Logout Button */}
                   <button
                     onClick={handleLogout}
                     className="p-1 text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
@@ -2552,9 +2555,9 @@ Justificación del plan: ${analysisResult.justification}`;
                     setAuthMode('login');
                     setShowAuthModal(true);
                   }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-2xl text-[11px] font-extrabold shadow-md shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer font-sans"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-extrabold shadow-md shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer font-sans"
                 >
-                  Iniciar Sesión
+                  Entrar
                 </button>
               )}
             </div>
@@ -2562,17 +2565,18 @@ Justificación del plan: ${analysisResult.justification}`;
         </header>
 
         {/* Navigation Tabs Bar */}
-        <div className="bg-slate-100/80 backdrop-blur-md border-b border-slate-200/60 py-2 px-6 md:px-10 flex gap-2 overflow-x-auto whitespace-nowrap">
+        <div className="bg-slate-100/80 backdrop-blur-md border-b border-slate-200/60 py-2 px-4 md:px-10 flex gap-2 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab('consultant')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'consultant'
                 ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <BookOpen className="w-4 h-4" />
-            Consultor de Cuidados
+            <BookOpen className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Consultor de Cuidados</span>
+            <span className="sm:hidden">Consultor</span>
           </button>
           
           <button
@@ -2584,14 +2588,15 @@ Justificación del plan: ${analysisResult.justification}`;
               setActiveTab('saved_plans');
               fetchSavedPlans();
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${
+            className={`flex-1 sm:flex-none justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer relative ${
               activeTab === 'saved_plans'
                 ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Database className="w-4 h-4" />
-            Mis Planes Guardados
+            <Database className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Mis Planes Guardados</span>
+            <span className="sm:hidden">Planes</span>
             {subscriptionStatus !== 'active' && (
               <Sparkles className="w-3 h-3 text-amber-500 absolute -top-1 -right-1" />
             )}
@@ -2601,14 +2606,15 @@ Justificación del plan: ${analysisResult.justification}`;
             onClick={() => {
               setActiveTab('calculators');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            className={`flex-1 sm:flex-none justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'calculators'
                 ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/80'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Activity className="w-4 h-4" />
-            Calculadoras Clínicas
+            <Activity className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Calculadoras Clínicas</span>
+            <span className="sm:hidden">Calculadoras</span>
           </button>
         </div>
 
@@ -3577,7 +3583,40 @@ Justificación del plan: ${analysisResult.justification}`;
               <p className="text-xs text-slate-500 mt-0.5">Selecciona una herramienta clínica.</p>
             </div>
 
-            <div className="flex flex-col gap-1">
+            {/* Selector para Mobile (Dropdown) */}
+            <div className="lg:hidden relative">
+              <select
+                id="calculator-selector"
+                value={activeCalculator}
+                onChange={(e) => setActiveCalculator(e.target.value as any)}
+                className="w-full bg-slate-50 text-slate-800 font-extrabold text-xs pl-4 pr-10 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-sans cursor-pointer appearance-none animate-fade-in"
+              >
+                {[
+                  { id: 'glasgow', name: 'Escala de Glasgow', isPremium: true },
+                  { id: 'apgar', name: 'Test de APGAR', isPremium: true },
+                  { id: 'silverman', name: 'Test de Silverman-Andersen', isPremium: true },
+                  { id: 'abg', name: 'Gases Arteriales (ABG)', isPremium: true },
+                  { id: 'braden', name: 'Escala de Braden (UPP)', isPremium: true },
+                  { id: 'downton', name: 'Escala de Downton (Caídas)', isPremium: true },
+                  { id: 'fpp', name: 'Fecha Probable de Parto (FPP)', isPremium: true },
+                  { id: 'bmi', name: 'Cálculo de IMC', isPremium: false },
+                  { id: 'dose', name: 'Regla de Tres (Dosis)', isPremium: false },
+                ].map((calc) => {
+                  const isLocked = calc.isPremium && subscriptionStatus !== 'active';
+                  return (
+                    <option key={calc.id} value={calc.id}>
+                      {calc.name} {isLocked ? ' (🔒 Premium)' : calc.isPremium ? ' (★ Premium)' : ' (Gratis)'}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <ChevronDown className="w-4 h-4" />
+              </div>
+            </div>
+
+            {/* Listado de botones para Desktop */}
+            <div className="hidden lg:flex flex-col gap-1">
               {[
                 { id: 'glasgow', name: 'Escala de Glasgow', isPremium: true },
                 { id: 'apgar', name: 'Test de APGAR', isPremium: true },
