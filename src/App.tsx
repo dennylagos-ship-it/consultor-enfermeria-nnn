@@ -406,6 +406,7 @@ export default function App() {
     } catch (err: any) {
       console.error("Auth error:", err);
       let msg = "Error al autenticar. Por favor revisa tus credenciales.";
+      
       if (err.code === "auth/email-already-in-use") {
         msg = "El correo electrónico ya está registrado.";
       } else if (err.code === "auth/invalid-credential") {
@@ -416,7 +417,18 @@ export default function App() {
         msg = "El formato de correo electrónico no es válido.";
       } else if (err.code === "auth/operation-not-allowed") {
         msg = "El método de autenticación por Correo/Contraseña no está activado en tu consola de Firebase. Debes habilitarlo.";
+      } else if (err.code === "auth/admin-restricted-operation") {
+        msg = "El registro de nuevos usuarios está deshabilitado en tu consola de Firebase (Authentication > Configuración).";
+      } else if (err.code === "auth/network-request-failed") {
+        msg = "Error de red. No se pudo conectar con Firebase. Por favor verifica tu conexión a internet o VPN.";
+      } else if (err.code === "auth/too-many-requests") {
+        msg = "Demasiados intentos. Acceso temporalmente bloqueado. Inténtalo más tarde.";
+      } else if (err.code) {
+        msg = `Error (${err.code}): ${err.message || "Por favor verifica las credenciales."}`;
+      } else if (err.message) {
+        msg = `Error: ${err.message}`;
       }
+      
       setAuthError(msg);
     }
   };
