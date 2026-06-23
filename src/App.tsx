@@ -172,8 +172,146 @@ export default function App() {
   const [downtonMental, setDowntonMental] = useState<number>(0);
   const [downtonGait, setDowntonGait] = useState<number>(0);
 
-  // Selected calculator subtab
-  const [activeCalculator, setActiveCalculator] = useState<'glasgow' | 'apgar' | 'silverman' | 'bmi' | 'fpp' | 'dose' | 'abg' | 'braden' | 'downton'>('glasgow');
+  // Selected calculator subtab and category filter
+  const [activeCalculator, setActiveCalculator] = useState<string | null>(null);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
+
+  // Norton Scale states
+  const [nortonPhysical, setNortonPhysical] = useState<number>(4);
+  const [nortonMental, setNortonMental] = useState<number>(4);
+  const [nortonActivity, setNortonActivity] = useState<number>(4);
+  const [nortonMobility, setNortonMobility] = useState<number>(4);
+  const [nortonIncontinence, setNortonIncontinence] = useState<number>(4);
+
+  // Barthel Index states
+  const [barthelFeeding, setBarthelFeeding] = useState<number>(10);
+  const [barthelBathing, setBarthelBathing] = useState<number>(5);
+  const [barthelGrooming, setBarthelGrooming] = useState<number>(5);
+  const [barthelDressing, setBarthelDressing] = useState<number>(10);
+  const [barthelBowels, setBarthelBowels] = useState<number>(10);
+  const [barthelBladder, setBarthelBladder] = useState<number>(10);
+  const [barthelToilet, setBarthelToilet] = useState<number>(10);
+  const [barthelTransfers, setBarthelTransfers] = useState<number>(15);
+  const [barthelMobility, setBarthelMobility] = useState<number>(15);
+  const [barthelStairs, setBarthelStairs] = useState<number>(10);
+
+  // Maddox Scale states
+  const [maddoxGrade, setMaddoxGrade] = useState<number>(0);
+
+  // Aldrete Scale states
+  const [aldreteActivity, setAldreteActivity] = useState<number>(2);
+  const [aldreteRespiration, setAldreteRespiration] = useState<number>(2);
+  const [aldreteCirculation, setAldreteCirculation] = useState<number>(2);
+  const [aldreteConsciousness, setAldreteConsciousness] = useState<number>(2);
+  const [aldreteO2Sat, setAldreteO2Sat] = useState<number>(2);
+
+  // Apgar Familiar states
+  const [famApgarAdaptation, setFamApgarAdaptation] = useState<number>(2);
+  const [famApgarPartnership, setFamApgarPartnership] = useState<number>(2);
+  const [famApgarGrowth, setFamApgarGrowth] = useState<number>(2);
+  const [famApgarAffection, setFamApgarAffection] = useState<number>(2);
+  const [famApgarResolve, setFamApgarResolve] = useState<number>(2);
+
+  // Body Surface Area states (Adults/Kids)
+  const [scWeight, setScWeight] = useState<string>('70');
+  const [scHeight, setScHeight] = useState<string>('170');
+
+  // Mean Arterial Pressure states
+  const [pamSystolic, setPamSystolic] = useState<string>('120');
+  const [pamDiastolic, setPamDiastolic] = useState<string>('80');
+
+  // Alcohol Dilution states
+  const [alcoholVol, setAlcoholVol] = useState<string>('1000');
+  const [alcoholGrad, setAlcoholGrad] = useState<string>('96');
+
+  // Sensible Losses states
+  const [lossesWeight, setLossesWeight] = useState<string>('70');
+  const [lossesHours, setLossesHours] = useState<string>('24');
+  const [lossesTemp, setLossesTemp] = useState<string>('37.0');
+  const [lossesResp, setLossesResp] = useState<string>('16');
+  const [lossesSweat, setLossesSweat] = useState<string>('none'); // 'none' | 'mild' | 'moderate' | 'severe'
+
+  // Inotrope Infusion states
+  const [inotropeDose, setInotropeDose] = useState<string>('5'); // mcg/kg/min
+  const [inotropeWeight, setInotropeWeight] = useState<string>('70'); // kg
+  const [inotropeAmpoules, setInotropeAmpoules] = useState<string>('200'); // mg
+  const [inotropeDilutionVolume, setInotropeDilutionVolume] = useState<string>('250'); // ml
+
+  // Inotrope 1:1 Volume states
+  const [inotrope1to1Dose, setInotrope1to1Dose] = useState<string>('5');
+  const [inotrope1to1Weight, setInotrope1to1Weight] = useState<string>('70');
+  const [inotrope1to1Concentration, setInotrope1to1Concentration] = useState<string>('1600');
+
+  // APACHE II state inputs
+  const [ap2Temp, setAp2Temp] = useState<number>(0); // Points: 0 to 4
+  const [ap2Map, setAp2Map] = useState<number>(0);
+  const [ap2Hr, setAp2Hr] = useState<number>(0);
+  const [ap2Rr, setAp2Rr] = useState<number>(0);
+  const [ap2Aado2, setAp2Aado2] = useState<number>(0);
+  const [ap2Ph, setAp2Ph] = useState<number>(0);
+  const [ap2Na, setAp2Na] = useState<number>(0);
+  const [ap2K, setAp2K] = useState<number>(0);
+  const [ap2Creat, setAp2Creat] = useState<number>(0);
+  const [ap2CreatAcute, setAp2CreatAcute] = useState<boolean>(false); // AKI doubles creatinine score
+  const [ap2Hct, setAp2Hct] = useState<number>(0);
+  const [ap2Wbc, setAp2Wbc] = useState<number>(0);
+  const [ap2Gcs, setAp2Gcs] = useState<number>(15); // GCS score (GCS points = 15 - GCS)
+  const [ap2Age, setAp2Age] = useState<number>(0); // Points: 0 to 6
+  const [ap2Chronic, setAp2Chronic] = useState<number>(0); // Points: 0, 2 or 5
+
+  // TISS-28 states
+  const [tissItems, setTissItems] = useState<Record<number, boolean>>({});
+
+  // CAM-ICU states
+  const [camOnset, setCamOnset] = useState<boolean>(false);
+  const [camInattention, setCamInattention] = useState<boolean>(false);
+  const [camRass, setCamRass] = useState<string>('0'); // '0' is alert/calm. Any other is altered.
+  const [camDisorganized, setCamDisorganized] = useState<boolean>(false);
+
+  // FLACC Scale states
+  const [flaccFace, setFlaccFace] = useState<number>(0);
+  const [flaccLegs, setFlaccLegs] = useState<number>(0);
+  const [flaccActivity, setFlaccActivity] = useState<number>(0);
+  const [flaccCry, setFlaccCry] = useState<number>(0);
+  const [flaccConsolability, setFlaccConsolability] = useState<number>(0);
+
+  // Pediatric Dose states
+  const [pedDosePrescribed, setPedDosePrescribed] = useState<string>('');
+  const [pedConcentrationMg, setPedConcentrationMg] = useState<string>('250');
+  const [pedConcentrationMl, setPedConcentrationMl] = useState<string>('5');
+
+  // Gestational Age states (additional)
+  const [egFurDate, setEgFurDate] = useState<string>('');
+
+  // Sueroterapia states
+  const [dripVolume, setDripVolume] = useState<string>('500');
+  const [dripTime, setDripTime] = useState<string>('8');
+  const [dripFactor, setDripFactor] = useState<string>('20'); // 20: gotas, 60: microgotas
+
+  const [infusionRate, setInfusionRate] = useState<string>('21');
+  const [infusionTime, setInfusionTime] = useState<string>('8');
+  const [infusionFactor, setInfusionFactor] = useState<string>('20');
+
+  const [timeVolume, setTimeVolume] = useState<string>('500');
+  const [timeRate, setTimeRate] = useState<string>('21');
+  const [timeFactor, setTimeFactor] = useState<string>('20');
+
+  // Injectable states
+  const [injDosePrescribed, setInjDosePrescribed] = useState<string>('');
+  const [injPresentationMg, setInjPresentationMg] = useState<string>('100');
+  const [injPresentationMl, setInjPresentationMl] = useState<string>('2');
+
+  // Dextrose mixing states
+  const [dexTargetVol, setDexTargetVol] = useState<string>('500');
+  const [dexTargetConc, setDexTargetConc] = useState<string>('10');
+  const [dexHighConc, setDexHighConc] = useState<string>('50');
+  const [dexLowConc, setDexLowConc] = useState<string>('5');
+
+  // Chloride mixing states
+  const [clVolume, setClVolume] = useState<string>('100');
+  const [clTargetConc, setClTargetConc] = useState<string>('0.9');
+  const [clHighConc, setClHighConc] = useState<string>('20');
+
 
   // Auth Modal States
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -2218,7 +2356,1779 @@ Justificación del plan: ${analysisResult.justification}`;
     );
   };
 
+  const renderNortonScale = () => {
+    const total = nortonPhysical + nortonMental + nortonActivity + nortonMobility + nortonIncontinence;
+    let risk = "Riesgo Muy Alto (<=12)";
+    let colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    if (total > 14) {
+      risk = "Riesgo Mínimo o Sin Riesgo (>14)";
+      colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    } else if (total > 12) {
+      risk = "Riesgo Evidente (13-14)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Norton Modificada</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa el estado físico y el riesgo de presentar úlceras o lesiones por presión (UPP).</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          {[
+            { label: "1. Estado Físico General", state: nortonPhysical, set: setNortonPhysical, opts: [{ v: 4, t: "4 - Bueno" }, { v: 3, t: "3 - Mediano" }, { v: 2, t: "2 - Pobre" }, { v: 1, t: "1 - Muy malo" }] },
+            { label: "2. Estado Mental", state: nortonMental, set: setNortonMental, opts: [{ v: 4, t: "4 - Alerta" }, { v: 3, t: "3 - Apático" }, { v: 2, t: "2 - Confuso" }, { v: 1, t: "1 - Estuporoso/Comatoso" }] },
+            { label: "3. Actividad / Movilidad", state: nortonActivity, set: setNortonActivity, opts: [{ v: 4, t: "4 - Ambulante" }, { v: 3, t: "3 - Camina con ayuda" }, { v: 2, t: "2 - Sentado (Silla)" }, { v: 1, t: "1 - En cama (Encamado)" }] },
+            { label: "4. Movilidad Física", state: nortonMobility, set: setNortonMobility, opts: [{ v: 4, t: "4 - Total" }, { v: 3, t: "3 - Disminuida leve" }, { v: 2, t: "2 - Muy limitada" }, { v: 1, t: "1 - Inmóvil" }] },
+            { label: "5. Incontinencia", state: nortonIncontinence, set: setNortonIncontinence, opts: [{ v: 4, t: "4 - Ninguna" }, { v: 3, t: "3 - Ocasional" }, { v: 2, t: "2 - Usualmente urinaria" }, { v: 1, t: "1 - Doble incontinencia (Urinaria y Fecal)" }] }
+          ].map((item, idx) => (
+            <div key={idx} className="space-y-1.5">
+              <label className="font-bold text-slate-700 block">{item.label}</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {item.opts.map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => item.set(opt.v)}
+                    className={`px-2.5 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                      item.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala Norton</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 20 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {risk}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBarthelIndex = () => {
+    const total = barthelFeeding + barthelBathing + barthelGrooming + barthelDressing + barthelBowels + barthelBladder + barthelToilet + barthelTransfers + barthelMobility + barthelStairs;
+    
+    let interpretation = "Independencia Total (100)";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    
+    if (total < 20) {
+      interpretation = "Dependencia Total (<20)";
+      colorClass = "bg-rose-650 text-white border-rose-700 shadow-sm";
+    } else if (total <= 35) {
+      interpretation = "Dependencia Grave (20-35)";
+      colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    } else if (total <= 55) {
+      interpretation = "Dependencia Moderada (40-55)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    } else if (total <= 95) {
+      interpretation = "Dependencia Leve (60-95)";
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm";
+    }
+
+    const items = [
+      { label: "1. Comer", state: barthelFeeding, set: setBarthelFeeding, opts: [{ v: 10, t: "10 - Independiente" }, { v: 5, t: "5 - Necesita ayuda" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "2. Lavarse (Baño)", state: barthelBathing, set: setBarthelBathing, opts: [{ v: 5, t: "5 - Independiente" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "3. Asearse (Higiene personal)", state: barthelGrooming, set: setBarthelGrooming, opts: [{ v: 5, t: "5 - Independiente" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "4. Vestirse", state: barthelDressing, set: setBarthelDressing, opts: [{ v: 10, t: "10 - Independiente" }, { v: 5, t: "5 - Necesita ayuda" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "5. Deposición (Control de esfínter anal)", state: barthelBowels, set: setBarthelBowels, opts: [{ v: 10, t: "10 - Continente" }, { v: 5, t: "5 - Accidente ocasional" }, { v: 0, t: "0 - Incontinente" }] },
+      { label: "6. Micción (Control de esfínter vesical)", state: barthelBladder, set: setBarthelBladder, opts: [{ v: 10, t: "10 - Continente" }, { v: 5, t: "5 - Accidente ocasional" }, { v: 0, t: "0 - Incontinente" }] },
+      { label: "7. Usar el retrete", state: barthelToilet, set: setBarthelToilet, opts: [{ v: 10, t: "10 - Independiente" }, { v: 5, t: "5 - Necesita ayuda" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "8. Trasladarse (Silla/Cama)", state: barthelTransfers, set: setBarthelTransfers, opts: [{ v: 15, t: "15 - Independiente" }, { v: 10, t: "10 - Mínima ayuda" }, { v: 5, t: "5 - Gran ayuda" }, { v: 0, t: "0 - Dependiente" }] },
+      { label: "9. Deambulación (Caminar en llano)", state: barthelMobility, set: setBarthelMobility, opts: [{ v: 15, t: "15 - Independiente" }, { v: 10, t: "10 - Camina con ayuda" }, { v: 5, t: "5 - En silla de ruedas" }, { v: 0, t: "0 - Inmóvil" }] },
+      { label: "10. Escalones (Subir/Bajar escaleras)", state: barthelStairs, set: setBarthelStairs, opts: [{ v: 10, t: "10 - Independiente" }, { v: 5, t: "5 - Necesita ayuda" }, { v: 0, t: "0 - Dependiente" }] }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Índice de Barthel</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa el nivel de independencia funcional del paciente en actividades de la vida diaria (AVD).</p>
+        </div>
+
+        <div className="space-y-5 text-xs max-h-[420px] overflow-y-auto pr-2">
+          {items.map((item, idx) => (
+            <div key={idx} className="space-y-1.5 border-b border-slate-100 pb-3">
+              <label className="font-bold text-slate-700 block">{item.label}</label>
+              <div className="flex flex-wrap gap-2">
+                {item.opts.map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => item.set(opt.v)}
+                    className={`px-3 py-1.5 rounded-xl border text-[11px] transition-all cursor-pointer ${
+                      item.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Índice Barthel</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 100 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {interpretation}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMaddoxScale = () => {
+    let details = "Sin síntomas de flebitis.";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    
+    if (maddoxGrade === 1) {
+      details = "Dolor local o eritema en zona del catéter. Sin cordón palpable.";
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm";
+    } else if (maddoxGrade === 2) {
+      details = "Dolor local, eritema y/o edema en zona de inserción. Sin cordón palpable.";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    } else if (maddoxGrade === 3) {
+      details = "Dolor local, eritema, edema e induración. Cordón venoso palpable < 8 cm.";
+      colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    } else if (maddoxGrade === 4) {
+      details = "Dolor local severo, eritema, edema, induración. Cordón palpable > 8 cm y drenaje purulento visible.";
+      colorClass = "bg-rose-650 text-white border-rose-700 shadow-sm";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Maddox (Flebitis)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa el grado de flebitis por infusión venosa periférica para decidir el retiro del catéter.</p>
+        </div>
+
+        <div className="space-y-2 text-xs">
+          <label className="font-bold text-slate-700 block">Selecciona el Grado de Flebitis Observado</label>
+          <div className="flex flex-col gap-2">
+            {[
+              { val: 0, title: "Grado 0 - Normal", desc: "Sitio de punción con aspecto normal, sin dolor." },
+              { val: 1, title: "Grado 1 - Leve", desc: "Dolor local leve o eritema ligero, sin hinchazón ni endurecimiento." },
+              { val: 2, title: "Grado 2 - Moderado", desc: "Dolor en zona de inserción con eritema y/o edema leve." },
+              { val: 3, title: "Grado 3 - Severo (Inicio de tromboflebitis)", desc: "Dolor, eritema, edema e induración local. Cordón venoso palpable." },
+              { val: 4, title: "Grado 4 - Flebitis Purulenta Avanzada", desc: "Dolor severo, cordón venoso palpable extenso (>8cm) y secreción purulenta." }
+            ].map(opt => (
+              <button
+                key={opt.val}
+                type="button"
+                onClick={() => setMaddoxGrade(opt.val)}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                  maddoxGrade === opt.val ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/75'
+                }`}
+              >
+                <span className="font-extrabold text-xs">{opt.title}</span>
+                <span className={`text-[10px] ${maddoxGrade === opt.val ? 'text-indigo-100' : 'text-slate-400'}`}>{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Clasificación Clínica</span>
+            <div className={`px-4 py-3 rounded-xl text-xs font-extrabold border ${colorClass} mt-1 text-center`}>
+              Grado {maddoxGrade} • {maddoxGrade >= 2 ? "Retirar Catéter Inmediatamente" : "Vigilancia Continua"}
+            </div>
+            <p className="text-[10px] text-slate-500 italic text-center mt-1">{details}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAldreteScale = () => {
+    const total = aldreteActivity + aldreteRespiration + aldreteCirculation + aldreteConsciousness + aldreteO2Sat;
+    let verdict = "Mantener en Observación / Cuidado de Recuperación (<8)";
+    let colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    
+    if (total >= 9) {
+      verdict = "Criterio de Alta Aprobado (Puntaje >= 9)";
+      colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    } else if (total === 8) {
+      verdict = "Criterio de Alta Limítrofe (Puntaje 8)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    }
+
+    const categories = [
+      { label: "1. Actividad Motora (Movimiento voluntario/órdenes)", state: aldreteActivity, set: setAldreteActivity, opts: [{ v: 2, t: "2 - Mueve 4 extremidades" }, { v: 1, t: "1 - Mueve 2 extremidades" }, { v: 0, t: "0 - Incapaz de mover extremidades" }] },
+      { label: "2. Respiración", state: aldreteRespiration, set: setAldreteRespiration, opts: [{ v: 2, t: "2 - Capaz de respirar profundo y toser" }, { v: 1, t: "1 - Disnea, respiración limitada o taquipnea" }, { v: 0, t: "0 - Apnea o ventilación asistida" }] },
+      { label: "3. Circulación (Presión Arterial con respecto al nivel basal)", state: aldreteCirculation, set: setAldreteCirculation, opts: [{ v: 2, t: "2 - PA ±20% del nivel preanestésico" }, { v: 1, t: "1 - PA ±20% a 50% del basal" }, { v: 0, t: "0 - PA ±50% o más del basal" }] },
+      { label: "4. Consciencia", state: aldreteConsciousness, set: setAldreteConsciousness, opts: [{ v: 2, t: "2 - Completamente despierto" }, { v: 1, t: "1 - Responde a estímulos / Despertable" }, { v: 0, t: "0 - No responde" }] },
+      { label: "5. Saturación de Oxígeno (SpO2)", state: aldreteO2Sat, set: setAldreteO2Sat, opts: [{ v: 2, t: "2 - SpO2 >92% respirando aire ambiente" }, { v: 1, t: "1 - Requiere O2 para mantener SpO2 >90%" }, { v: 0, t: "0 - SpO2 <90% con aporte de oxígeno" }] }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Aldrete</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa los criterios de recuperación post-anestésica para determinar el alta segura del paciente.</p>
+        </div>
+
+        <div className="space-y-4 text-xs max-h-[380px] overflow-y-auto pr-2">
+          {categories.map((cat, idx) => (
+            <div key={idx} className="space-y-1.5 border-b border-slate-100 pb-3">
+              <label className="font-bold text-slate-700 block">{cat.label}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {cat.opts.map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => cat.set(opt.v)}
+                    className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                      cat.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala Aldrete</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 10 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {verdict}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFamApgarScale = () => {
+    const total = famApgarAdaptation + famApgarPartnership + famApgarGrowth + famApgarAffection + famApgarResolve;
+    let status = "Familia Altamente Funcional (7-10)";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    
+    if (total <= 3) {
+      status = "Disfunción Familiar Severa (0-3)";
+      colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    } else if (total <= 6) {
+      status = "Disfunción Familiar Leve a Moderada (4-6)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    }
+
+    const criteria = [
+      { label: "1. Adaptación (Recursos compartidos al afrontar crisis)", state: famApgarAdaptation, set: setFamApgarAdaptation },
+      { label: "2. Participación (Diálogo y toma de decisiones familiar)", state: famApgarPartnership, set: setFamApgarPartnership },
+      { label: "3. Gradación / Crecimiento (Apoyo en nuevas etapas y madurez)", state: famApgarGrowth, set: setFamApgarGrowth },
+      { label: "4. Afecto (Expresión de amor y emociones familiares)", state: famApgarAffection, set: setFamApgarAffection },
+      { label: "5. Resolución (Tiempo de calidad, compromisos compartidos)", state: famApgarResolve, set: setFamApgarResolve }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Apgar Familiar</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa de forma rápida y objetiva la percepción de funcionalidad y soporte del núcleo familiar.</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          {criteria.map((crit, idx) => (
+            <div key={idx} className="space-y-1.5 border-b border-slate-100 pb-3">
+              <label className="font-bold text-slate-700 block">{crit.label}</label>
+              <div className="grid grid-cols-3 gap-2 max-w-sm">
+                {[
+                  { v: 2, t: "Casi siempre (2)" },
+                  { v: 1, t: "Algunas veces (1)" },
+                  { v: 0, t: "Casi nunca (0)" }
+                ].map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => crit.set(opt.v)}
+                    className={`px-2 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                      crit.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Apgar Familiar</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 10 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {status}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderScCalculator = () => {
+    const w = parseFloat(scWeight) || 0;
+    const h = parseFloat(scHeight) || 0;
+
+    let bsa = 0;
+    if (w > 0 && h > 0) {
+      // Mosteller Formula: BSA = sqrt( (W * H) / 3600 )
+      bsa = Math.sqrt((w * h) / 3600);
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Superficie Corporal (BSA)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el área de superficie corporal usando la fórmula estandarizada de Mosteller.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">Peso del Paciente (kg)</label>
+            <input
+              type="number"
+              value={scWeight}
+              onChange={(e) => setScWeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="70"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">Estatura / Altura (cm)</label>
+            <input
+              type="number"
+              value={scHeight}
+              onChange={(e) => setScHeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="170"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Superficie Corporal Estimada (Mosteller)</span>
+            <div className="text-4xl font-black text-indigo-750 font-mono">
+              {bsa > 0 ? bsa.toFixed(2) : "0.00"} <span className="text-lg font-bold text-slate-500 font-sans">m²</span>
+            </div>
+          </div>
+          <p className="text-[9px] text-slate-400">Útil para la dosificación de quimioterapias, fármacos vasoactivos y estimación de balances hídricos.</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPamCalculator = () => {
+    const s = parseFloat(pamSystolic) || 0;
+    const d = parseFloat(pamDiastolic) || 0;
+
+    let map = 0;
+    let label = "Ingrese valores";
+    let colorClass = "bg-slate-100 text-slate-500 border-slate-200/80 shadow-sm";
+
+    if (s > 0 && d > 0) {
+      // MAP = (Systolic + 2*Diastolic) / 3
+      map = (s + 2 * d) / 3;
+      if (map < 60) {
+        label = "Presión de Perfusión Tisular Insuficiente (<60)";
+        colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+      } else if (map <= 105) {
+        label = "Perfusión Orgánica Normal (70 - 105)";
+        colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+      } else {
+        label = "Presión de Perfusión Elevada (>105)";
+        colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Presión Arterial Media (PAM)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula la presión promedio que empuja la sangre a los tejidos para asegurar la perfusión de órganos vitales.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">PAS (Presión Sistólica mmHg)</label>
+            <input
+              type="number"
+              value={pamSystolic}
+              onChange={(e) => setPamSystolic(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="120"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">PAD (Presión Diastólica mmHg)</label>
+            <input
+              type="number"
+              value={pamDiastolic}
+              onChange={(e) => setPamDiastolic(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="80"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado PAM</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800 font-mono">{map > 0 ? map.toFixed(1) : "0.0"}</span>
+              <span className="text-xs font-bold text-slate-400">mmHg</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {label}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAlcoholDilutionCalculator = () => {
+    const vol = parseFloat(alcoholVol) || 0;
+    const grad = parseFloat(alcoholGrad) || 0;
+
+    let waterToAdd = 0;
+    let totalVol = 0;
+
+    if (vol > 0 && grad > 70) {
+      // V2 = V1 * (C1 / C2) => Water = V2 - V1 = V1 * (C1 / 70 - 1)
+      waterToAdd = vol * ((grad / 70) - 1);
+      totalVol = vol + waterToAdd;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Dilución de Alcohol a 70°</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el volumen de agua destilada a agregar a alcoholes de alta graduación para rebajarlos a 70° (desinfectante óptimo).</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">Volumen Inicial de Alcohol (ml)</label>
+            <input
+              type="number"
+              value={alcoholVol}
+              onChange={(e) => setAlcoholVol(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="1000"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 block">Graduación Inicial (ej. 96°)</label>
+            <input
+              type="number"
+              value={alcoholGrad}
+              onChange={(e) => setAlcoholGrad(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="96"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase block">Instrucciones de Mezcla</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-450 uppercase block">Agua destilada a agregar</span>
+              <span className="text-xl font-extrabold text-indigo-700 font-mono">{waterToAdd > 0 ? waterToAdd.toFixed(0) : "0"} ml</span>
+            </div>
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-455 uppercase block">Volumen Total Final</span>
+              <span className="text-xl font-extrabold text-indigo-700 font-mono">{totalVol > 0 ? totalVol.toFixed(0) : "0"} ml</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSensibleLossesCalculator = () => {
+    const w = parseFloat(lossesWeight) || 0;
+    const hrs = parseFloat(lossesHours) || 0;
+    const temp = parseFloat(lossesTemp) || 0;
+    const resp = parseFloat(lossesResp) || 0;
+
+    let losses = 0;
+    if (w > 0 && hrs > 0) {
+      // Base: 0.5 ml/kg/hour
+      let factor = 0.5;
+
+      // Adjust for fever: +0.1 ml/kg/hour for each °C above 37.0
+      if (temp > 37.0) {
+        factor += 0.1 * (temp - 37.0);
+      }
+
+      // Adjust for tachypnea: +0.1 ml/kg/hour for each 5 respirations above 20
+      if (resp > 20) {
+        factor += 0.1 * Math.floor((resp - 20) / 5);
+      }
+
+      losses = factor * w * hrs;
+
+      // Adjust for sweating (Diaforesis): Leve: +10ml/h, Mod: +20ml/h, Sev: +40ml/h
+      if (lossesSweat === 'mild') {
+        losses += 10 * hrs;
+      } else if (lossesSweat === 'moderate') {
+        losses += 20 * hrs;
+      } else if (lossesSweat === 'severe') {
+        losses += 40 * hrs;
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Cálculo de Pérdidas Insensibles</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula la pérdida hídrica por respiración y piel, considerando hipertermia, taquipnea y diaforesis.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Peso Corporal (kg)</label>
+            <input
+              type="number"
+              value={lossesWeight}
+              onChange={(e) => setLossesWeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Horas de Balance</label>
+            <input
+              type="number"
+              value={lossesHours}
+              onChange={(e) => setLossesHours(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Temperatura Máx (°C)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={lossesTemp}
+              onChange={(e) => setLossesTemp(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Frecuencia Resp. (rpm)</label>
+            <input
+              type="number"
+              value={lossesResp}
+              onChange={(e) => setLossesResp(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Diaforesis selector */}
+        <div className="space-y-2 text-xs">
+          <label className="font-bold text-slate-700 block">Gravedad de la Diaforesis (Sudoración)</label>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { val: 'none', t: "Ninguna" },
+              { val: 'mild', t: "Leve (+10ml/h)" },
+              { val: 'moderate', t: "Mod. (+20ml/h)" },
+              { val: 'severe', t: "Sev. (+40ml/h)" }
+            ].map(opt => (
+              <button
+                key={opt.val}
+                type="button"
+                onClick={() => setLossesSweat(opt.val)}
+                className={`px-1 py-2 rounded-xl border text-[10px] text-center transition-all cursor-pointer ${
+                  lossesSweat === opt.val ? 'bg-indigo-650 border-indigo-650 text-white font-bold' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                }`}
+              >
+                {opt.t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Volumen de Pérdida Estimado</span>
+            <div className="text-3xl font-black text-indigo-750 font-mono">
+              {losses > 0 ? losses.toFixed(0) : "0"} <span className="text-sm font-bold text-slate-500 font-sans">ml</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInotropeCalculator = () => {
+    const d = parseFloat(inotropeDose) || 0;
+    const w = parseFloat(inotropeWeight) || 0;
+    const amp = parseFloat(inotropeAmpoules) || 0;
+    const vol = parseFloat(inotropeDilutionVolume) || 0;
+
+    let conc = 0;
+    let rate = 0;
+    if (amp > 0 && vol > 0) {
+      // Concentration in mcg/ml = (mg * 1000) / ml
+      conc = (amp * 1000) / vol;
+      if (d > 0 && w > 0) {
+        // Rate in ml/hr = (dose * weight * 60) / concentration
+        rate = (d * w * 60) / conc;
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Infusión de Inotrópicos</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Convierte la dosis prescrita de vasoactivos/inotrópicos (mcg/kg/min) a velocidad de infusión en bomba (ml/h).</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Dosis prescrita (mcg/kg/min)</label>
+            <input
+              type="number"
+              value={inotropeDose}
+              onChange={(e) => setInotropeDose(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Peso del Paciente (kg)</label>
+            <input
+              type="number"
+              value={inotropeWeight}
+              onChange={(e) => setInotropeWeight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Concentración de Ampolla (mg)</label>
+            <input
+              type="number"
+              value={inotropeAmpoules}
+              onChange={(e) => setInotropeAmpoules(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Volumen del Diluyente (ml)</label>
+            <input
+              type="number"
+              value={inotropeDilutionVolume}
+              onChange={(e) => setInotropeDilutionVolume(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase block">Resultados de Dosificación</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-450 uppercase block">Concentración Mezcla</span>
+              <span className="text-base font-extrabold text-indigo-700 font-mono">{conc > 0 ? conc.toFixed(0) : "0"} mcg/ml</span>
+            </div>
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-455 uppercase block">Flujo Bomba Infusión</span>
+              <span className="text-base font-extrabold text-indigo-700 font-mono">{rate > 0 ? rate.toFixed(1) : "0.0"} ml/h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInotrope1to1Calculator = () => {
+    const d = parseFloat(inotrope1to1Dose) || 0;
+    const w = parseFloat(inotrope1to1Weight) || 0;
+    const conc = parseFloat(inotrope1to1Concentration) || 1600; // default 1600 mcg/ml (e.g. 400mg in 250ml)
+
+    let rate = 0;
+    if (d > 0 && w > 0 && conc > 0) {
+      rate = (d * w * 60) / conc;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Volumen Total Inotrópicos (1:1)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el flujo de bomba rápido (ml/h) para soluciones estándar de infusión 1:1, donde se conoce la concentración fija en mcg/ml.</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Dosis (mcg/kg/min)</label>
+            <input
+              type="number"
+              value={inotrope1to1Dose}
+              onChange={(e) => setInotrope1to1Dose(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Peso (kg)</label>
+            <input
+              type="number"
+              value={inotrope1to1Weight}
+              onChange={(e) => setInotrope1to1Weight(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Concentración (mcg/ml)</label>
+            <input
+              type="number"
+              value={inotrope1to1Concentration}
+              onChange={(e) => setInotrope1to1Concentration(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Flujo Requerido (ml/h)</span>
+            <div className="text-3xl font-black text-indigo-750 font-mono">
+              {rate > 0 ? rate.toFixed(1) : "0.0"} <span className="text-sm font-bold text-slate-500 font-sans">ml/h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderApache2Scale = () => {
+    // APACHE II is physiology (ap2Temp + ap2Map + ap2Hr + ap2Rr + ap2Aado2 + ap2Ph + ap2Na + ap2K + ap2Creat*doubleIfAcute + ap2Hct + ap2Wbc + (15-ap2Gcs)) + age + chronic
+    const creatPoints = ap2CreatAcute ? (ap2Creat * 2) : ap2Creat;
+    const gcsPoints = 15 - ap2Gcs;
+    const total = ap2Temp + ap2Map + ap2Hr + ap2Rr + ap2Aado2 + ap2Ph + ap2Na + ap2K + creatPoints + ap2Hct + ap2Wbc + gcsPoints + ap2Age + ap2Chronic;
+
+    let mortality = "Mortalidad aprox: ~8-10%";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+
+    if (total >= 35) {
+      mortality = "Mortalidad crítica: >80%";
+      colorClass = "bg-rose-650 text-white border-rose-700 shadow-sm";
+    } else if (total >= 25) {
+      mortality = "Mortalidad severa: ~50-55%";
+      colorClass = "bg-rose-500 text-white border-rose-600 shadow-sm";
+    } else if (total >= 15) {
+      mortality = "Mortalidad moderada: ~25%";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    } else if (total >= 10) {
+      mortality = "Mortalidad leve: ~15%";
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm";
+    }
+
+    const items = [
+      { label: "1. Temperatura (°C)", state: ap2Temp, set: setAp2Temp, opts: [{ v: 0, t: "36.0-38.4 (0)" }, { v: 1, t: "38.5-38.9 / 34.0-35.9 (+1)" }, { v: 2, t: "32.0-33.9 (+2)" }, { v: 3, t: ">=41.0 / 30.0-31.9 (+3)" }, { v: 4, t: ">=40.0 / <30.0 (+4)" }] },
+      { label: "2. Presión Arterial Media (PAM mmHg)", state: ap2Map, set: setAp2Map, opts: [{ v: 0, t: "70-109 (0)" }, { v: 1, t: "110-129 / 61-69 (+1)" }, { v: 2, t: "130-159 / 50-60 (+2)" }, { v: 3, t: ">=160 / <50 (+3)" }, { v: 4, t: "Anormal Extremo (+4)" }] },
+      { label: "3. Frecuencia Cardíaca (LPM)", state: ap2Hr, set: setAp2Hr, opts: [{ v: 0, t: "70-109 (0)" }, { v: 1, t: "110-139 / 55-69 (+1)" }, { v: 2, t: "140-179 / 40-54 (+2)" }, { v: 3, t: ">=180 / <40 (+3)" }, { v: 4, t: "Anormal Extremo (+4)" }] },
+      { label: "4. Frecuencia Respiratoria (RPM)", state: ap2Rr, set: setAp2Rr, opts: [{ v: 0, t: "12-24 (0)" }, { v: 1, t: "25-34 / 10-11 (+1)" }, { v: 2, t: "6-9 (+2)" }, { v: 3, t: "35-49 (+3)" }, { v: 4, t: ">=50 / <=5 (+4)" }] },
+      { label: "5. Oxigenación / A-aDO2", state: ap2Aado2, set: setAp2Aado2, opts: [{ v: 0, t: "Normal / PaO2 >70 (0)" }, { v: 1, t: "A-aDO2 200-349 (+1)" }, { v: 2, t: "A-aDO2 350-499 (+2)" }, { v: 3, t: "PaO2 55-60 (+3)" }, { v: 4, t: "PaO2 <55 o A-aDO2 >=500 (+4)" }] },
+      { label: "6. pH Arterial", state: ap2Ph, set: setAp2Ph, opts: [{ v: 0, t: "7.33-7.49 (0)" }, { v: 1, t: "7.50-7.59 / 7.25-7.32 (+1)" }, { v: 2, t: "7.60-7.69 / 7.15-7.24 (+2)" }, { v: 3, t: ">=7.70 / 7.00-7.14 (+3)" }, { v: 4, t: "<7.00 (+4)" }] },
+      { label: "7. Sodio Sérico (mmol/L)", state: ap2Na, set: setAp2Na, opts: [{ v: 0, t: "130-149 (0)" }, { v: 1, t: "150-154 / 120-129 (+1)" }, { v: 2, t: "155-159 / 115-119 (+2)" }, { v: 3, t: "160-179 / 110-114 (+3)" }, { v: 4, t: ">=180 / <110 (+4)" }] },
+      { label: "8. Potasio Sérico (mmol/L)", state: ap2K, set: setAp2K, opts: [{ v: 0, t: "3.5-5.4 (0)" }, { v: 1, t: "5.5-5.9 / 3.0-3.4 (+1)" }, { v: 2, t: "2.5-2.9 (+2)" }, { v: 3, t: "6.0-6.9 (+3)" }, { v: 4, t: ">=7.0 / <2.5 (+4)" }] },
+      { label: "9. Creatinina Sérica (mg/dL)", state: ap2Creat, set: setAp2Creat, opts: [{ v: 0, t: "<0.6-1.4 (0)" }, { v: 1, t: "Basal / Límite (+1)" }, { v: 2, t: "1.5-1.9 (+2)" }, { v: 3, t: "2.0-3.4 (+3)" }, { v: 4, t: ">=3.5 (+4)" }] },
+      { label: "10. Hematocrito (%)", state: ap2Hct, set: setAp2Hct, opts: [{ v: 0, t: "30-45.9 (0)" }, { v: 1, t: "46-49.9 / 20-29.9 (+1)" }, { v: 2, t: "50-59.9 (+2)" }, { v: 4, t: ">=60 / <20 (+4)" }] },
+      { label: "11. Leucocitos (x1000)", state: ap2Wbc, set: setAp2Wbc, opts: [{ v: 0, t: "3.0-14.9 (0)" }, { v: 1, t: "15.0-19.9 / 1.0-2.9 (+1)" }, { v: 2, t: "20.0-39.9 (+2)" }, { v: 4, t: ">=40 / <1 (+4)" }] },
+      { label: "12. Edad del Paciente", state: ap2Age, set: setAp2Age, opts: [{ v: 0, t: "<=44 años (0)" }, { v: 2, t: "45-54 años (+2)" }, { v: 3, t: "55-64 años (+3)" }, { v: 5, t: "65-74 años (+5)" }, { v: 6, t: ">=75 años (+6)" }] },
+      { label: "13. Ineficiencia Orgánica Crónica / Inmunocompromiso", state: ap2Chronic, set: setAp2Chronic, opts: [{ v: 0, t: "Ninguno (0)" }, { v: 2, t: "Sí - Postoperatorio electivo (+2)" }, { v: 5, t: "Sí - No operatorio o postoperatorio de urgencia (+5)" }] }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala APACHE II</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Sistema de puntuación de severidad para evaluar el pronóstico de mortalidad en pacientes ingresados a UCI en las primeras 24 horas.</p>
+        </div>
+
+        {/* Creatinine kidney failure check */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex justify-between items-center gap-4 text-xs font-bold text-amber-800">
+          <span>¿El paciente tiene Insuficiencia Renal Aguda (IRA / AKI)?</span>
+          <button
+            onClick={() => setAp2CreatAcute(!ap2CreatAcute)}
+            className={`px-3 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer transition-all ${
+              ap2CreatAcute ? 'bg-amber-600 border-amber-600 text-white shadow-sm' : 'bg-white border-amber-300 text-amber-700'
+            }`}
+          >
+            {ap2CreatAcute ? "Sí (Puntaje de Creatinina x2)" : "No (Normal)"}
+          </button>
+        </div>
+
+        {/* Glasgow check inside APACHE */}
+        <div className="space-y-2 text-xs">
+          <label className="font-bold text-slate-700 block">Puntaje Escala de Glasgow (Puntos = 15 - GCS)</label>
+          <div className="flex items-center gap-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <input
+              type="range"
+              min="3"
+              max="15"
+              value={ap2Gcs}
+              onChange={(e) => setAp2Gcs(parseInt(e.target.value))}
+              className="flex-1 accent-indigo-600 cursor-pointer"
+            />
+            <span className="font-extrabold font-mono text-slate-700">{ap2Gcs} / 15 GCS ({gcsPoints} pts APACHE)</span>
+          </div>
+        </div>
+
+        {/* All physiology selectors */}
+        <div className="space-y-5 text-xs max-h-[300px] overflow-y-auto pr-2">
+          {items.map((item, idx) => (
+            <div key={idx} className="space-y-1.5 border-b border-slate-100 pb-3">
+              <label className="font-bold text-slate-700 block">{item.label}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {item.opts.map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => item.set(opt.v)}
+                    className={`px-2 py-1.5 rounded-xl border text-[10px] transition-all cursor-pointer ${
+                      item.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Puntuación Total APACHE II</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800 font-mono">{total}</span>
+              <span className="text-xs font-bold text-slate-400">puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {mortality}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTiss28Scale = () => {
+    // TISS-28 contains 28 checklist items.
+    const items = [
+      { id: 1, p: 3, cat: "Actividades Básicas", t: "Monitorización estándar (ECG, PA, SatO2, balances)" },
+      { id: 2, p: 3, cat: "Actividades Básicas", t: "Pruebas de laboratorio estándar (Bioquímica/Gases diarios)" },
+      { id: 3, p: 2, cat: "Actividades Básicas", t: "Medicación única o múltiple (IV, IM o Subcutánea)" },
+      { id: 4, p: 1, cat: "Actividades Básicas", t: "Procedimientos de higiene, curación estándar y aseo del paciente" },
+      { id: 5, p: 5, cat: "Actividades Básicas", t: "Cuidados de enfermería complejos (Decúbito prono, movilización asistida >3 personas)" },
+      { id: 6, p: 1, cat: "Actividades Básicas", t: "Procedimientos diagnósticos fuera de UCI (Escáner, RMN)" },
+      { id: 7, p: 5, cat: "Soporte Ventilatorio", t: "Ventilación mecánica invasiva (Tubo ET o Traqueostomía)" },
+      { id: 8, p: 2, cat: "Soporte Ventilatorio", t: "Soporte respiratorio no invasivo (VNI, mascarilla reservorio, CPAP)" },
+      { id: 9, p: 2, cat: "Soporte Ventilatorio", t: "Cuidado estándar de vía aérea (Fisioterapia respiratoria, aspiración de secreciones)" },
+      { id: 10, p: 3, cat: "Soporte Cardiovascular", t: "Medicamento inotrópico o vasoactivo único (Dopamina, Dobuta, etc.)" },
+      { id: 11, p: 4, cat: "Soporte Cardiovascular", t: "Medicamentos inotrópicos múltiples (ej. Noradrenalina + Dobutamina)" },
+      { id: 12, p: 4, cat: "Soporte Cardiovascular", t: "Infusión de fluidos masiva (>3L/día) o reposición de volumen activa" },
+      { id: 13, p: 8, cat: "Soporte Cardiovascular", t: "Catéter arterial pulmonar de Swan-Ganz o monitoreo de gasto cardíaco avanzado" },
+      { id: 14, p: 8, cat: "Soporte Cardiovascular", t: "Resucitación cardiopulmonar activa (RCP en las últimas 24h)" },
+      { id: 15, p: 3, cat: "Soporte Renal", t: "Hemodiálisis, hemofiltración activa o diálisis peritoneal" },
+      { id: 16, p: 3, cat: "Soporte Renal", t: "Medición horaria de diuresis (Sonda Foley)" },
+      { id: 17, p: 4, cat: "Soporte Neurológico", t: "Monitorización de presión intracraneal (PIC) o monitoreo continuo de EEG" },
+      { id: 18, p: 4, cat: "Soporte Metabólico", t: "Nutrición parenteral total (NPT)" },
+      { id: 19, p: 2, cat: "Soporte Metabólico", t: "Nutrición enteral por sonda (SNG / SNY)" },
+      { id: 20, p: 4, cat: "Soporte Metabólico", t: "Monitoreo metabólico complejo (Control glucémico estricto con bomba de insulina)" },
+      { id: 21, p: 1, cat: "Soporte Gastrointestinal", t: "Cuidado estándar del tracto digestivo (Aseo, enemas, prevención de reflujo)" },
+      { id: 22, p: 3, cat: "Soporte Gastrointestinal", t: "Lavados gástricos continuos o manejo de sangrado digestivo activo" },
+      { id: 23, p: 3, cat: "Procedimientos Específicos", t: "Línea arterial periférica (Línea radial/femoral)" },
+      { id: 24, p: 2, cat: "Procedimientos Específicos", t: "Vía Venosa Central (CVC multilumen)" },
+      { id: 25, p: 3, cat: "Procedimientos Específicos", t: "Manejo de marcapasos temporal externo" },
+      { id: 26, p: 1, cat: "Procedimientos Específicos", t: "Manejo y vaciado de múltiples drenajes quirúrgicos" },
+      { id: 27, p: 3, cat: "Procedimientos Específicos", t: "Cambios de vendajes complejos con asistencia médica o estériles" },
+      { id: 28, p: 4, cat: "Procedimientos Específicos", t: "Procedimiento de intubación endotraqueal de urgencia en UCI" }
+    ];
+
+    const toggleItem = (itemId: number) => {
+      setTissItems(prev => ({
+        ...prev,
+        [itemId]: !prev[itemId]
+      }));
+    };
+
+    const total = items.reduce((acc, item) => acc + (tissItems[item.id] ? item.p : 0), 0);
+    const scorePercentage = (total / 78) * 100;
+    
+    // Workforce evaluation: 1 nurse per shift can manage ~46 points of TISS-28
+    let ratio = "Carga leve: 1 Enfermero(a) puede cuidar a 2 pacientes con este puntaje.";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+    
+    if (total >= 46) {
+      ratio = "Carga Extrema: Requiere atención 1:1 exclusiva (1 Enfermero por paciente).";
+      colorClass = "bg-rose-650 text-white border-rose-700 shadow-sm";
+    } else if (total >= 25) {
+      ratio = "Carga Alta: 1 Enfermero por paciente o asistencia parcial.";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala TISS-28</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Mide la carga de trabajo del personal de enfermería en base a las intervenciones terapéuticas del paciente crítico.</p>
+        </div>
+
+        <div className="space-y-2 text-xs max-h-[300px] overflow-y-auto pr-2 border border-slate-100 rounded-2xl p-2.5 bg-slate-50/50">
+          {items.map(item => (
+            <div
+              key={item.id}
+              onClick={() => toggleItem(item.id)}
+              className={`p-2.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                tissItems[item.id] ? 'bg-indigo-50 border-indigo-200 text-slate-800' : 'bg-white border-slate-150 text-slate-650 hover:bg-slate-50'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={!!tissItems[item.id]}
+                onChange={() => {}} // handled by div click
+                className="mt-0.5 accent-indigo-600 shrink-0 cursor-pointer"
+              />
+              <div className="flex-1 space-y-0.5">
+                <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest block">{item.cat}</span>
+                <p className="text-[11px] font-bold leading-snug">{item.t}</p>
+              </div>
+              <span className={`text-xs font-black shrink-0 ${tissItems[item.id] ? 'text-indigo-650' : 'text-slate-400'}`}>+{item.p} pts</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Carga de Enfermería TISS-28</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800 font-mono">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 78 puntos ({scorePercentage.toFixed(0)}%)</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {ratio}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCamIcuScale = () => {
+    // CAM-ICU diagnosis algorithm:
+    // Delirium is positive if: (Feature 1 AND Feature 2) AND (Feature 3 OR Feature 4)
+    // Feature 1: camOnset (fluctuating course / acute onset)
+    // Feature 2: camInattention (>=2 errors on attention test)
+    // Feature 3: camRass != 0 (altered consciousness)
+    // Feature 4: camDisorganized (>=2 errors on thinking questions)
+    const hasFeature1 = camOnset;
+    const hasFeature2 = camInattention;
+    const hasFeature3 = camRass !== '0';
+    const hasFeature4 = camDisorganized;
+
+    const isDeliriumPositive = hasFeature1 && hasFeature2 && (hasFeature3 || hasFeature4);
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Evaluación CAM-ICU (Delirium)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Evalúa el delirium y la confusión en pacientes de UCI con ventilación asistida o sedados.</p>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          {/* Feature 1 */}
+          <div className="bg-slate-55 border border-slate-200/80 rounded-2xl p-4 flex justify-between items-center gap-4">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest block">Característica 1</span>
+              <p className="font-extrabold text-slate-700">Inicio agudo o curso fluctuante</p>
+              <p className="text-[10px] text-slate-400 leading-snug">¿Hay cambios en el estado mental basal del paciente o fluctúa su nivel de consciencia?</p>
+            </div>
+            <button
+              onClick={() => setCamOnset(!camOnset)}
+              className={`px-4 py-2 rounded-xl border text-[11px] font-bold cursor-pointer transition-all ${
+                camOnset ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+              }`}
+            >
+              {camOnset ? "Sí" : "No"}
+            </button>
+          </div>
+
+          {/* Feature 2 */}
+          <div className="bg-slate-55 border border-slate-200/80 rounded-2xl p-4 flex justify-between items-center gap-4">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest block">Característica 2</span>
+              <p className="font-extrabold text-slate-700">Falta de atención (Inatención)</p>
+              <p className="text-[10px] text-slate-400 leading-snug">¿El paciente cometió 2 o más errores al apretar la mano con la palabra "SAVEAHAART"?</p>
+            </div>
+            <button
+              onClick={() => setCamInattention(!camInattention)}
+              className={`px-4 py-2 rounded-xl border text-[11px] font-bold cursor-pointer transition-all ${
+                camInattention ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+              }`}
+            >
+              {camInattention ? "Sí (Inatento)" : "No"}
+            </button>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="bg-slate-55 border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest block">Característica 3</span>
+              <p className="font-extrabold text-slate-700">Nivel de conciencia alterado (RASS)</p>
+              <p className="text-[10px] text-slate-400 leading-snug">¿El puntaje actual de la escala RASS es diferente de cero (ej. agitado, sedado)?</p>
+            </div>
+            <div className="flex gap-1 shrink-0 self-end sm:self-auto">
+              {['-2', '0', '+2'].map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => setCamRass(opt)}
+                  className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold cursor-pointer transition-all ${
+                    camRass === opt ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt === '0' ? "RASS 0 (Normal)" : opt === '-2' ? "Sedado (<-1)" : "Agitado (>+1)"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Feature 4 */}
+          <div className="bg-slate-55 border border-slate-200/80 rounded-2xl p-4 flex justify-between items-center gap-4">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest block">Característica 4</span>
+              <p className="font-extrabold text-slate-700">Pensamiento desorganizado</p>
+              <p className="text-[10px] text-slate-400 leading-snug">¿El paciente tiene dificultad con preguntas lógicas simples (ej. ¿flota una piedra en el agua?)?</p>
+            </div>
+            <button
+              onClick={() => setCamDisorganized(!camDisorganized)}
+              className={`px-4 py-2 rounded-xl border text-[11px] font-bold cursor-pointer transition-all ${
+                camDisorganized ? 'bg-indigo-650 border-indigo-650 text-white shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+              }`}
+            >
+              {camDisorganized ? "Sí (Desorganizado)" : "No"}
+            </button>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between gap-3 text-center">
+          <span className="text-[10px] font-bold text-slate-400 uppercase block">Diagnóstico de Delirium (CAM-ICU)</span>
+          <div className={`px-4 py-3 rounded-xl text-xs font-black border ${
+            isDeliriumPositive ? "bg-rose-500 text-white border-rose-600 shadow-md" : "bg-emerald-500 text-white border-emerald-600 shadow-md"
+          }`}>
+            {isDeliriumPositive ? "CAM-ICU POSITIVO (Delirium Detectado)" : "CAM-ICU NEGATIVO (Sin Delirium)"}
+          </div>
+          <p className="text-[9px] text-slate-400">El diagnóstico requiere de Características 1 y 2 presentes, junto con Característica 3 o 4 alterada.</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFlaccScale = () => {
+    const total = flaccFace + flaccLegs + flaccActivity + flaccCry + flaccConsolability;
+    let level = "Sin dolor (0)";
+    let colorClass = "bg-emerald-500 text-white border-emerald-600 shadow-sm";
+
+    if (total >= 7) {
+      level = "Dolor Severo (7-10)";
+      colorClass = "bg-rose-650 text-white border-rose-700 shadow-sm";
+    } else if (total >= 4) {
+      level = "Dolor Moderado (4-6)";
+      colorClass = "bg-amber-500 text-slate-900 border-amber-600 shadow-sm";
+    } else if (total >= 1) {
+      level = "Dolor Leve (1-3)";
+      colorClass = "bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm";
+    }
+
+    const categories = [
+      { label: "1. Cara (Expresión facial)", state: flaccFace, set: setFlaccFace, opts: [{ v: 0, t: "0 - Expresión de sonrisa o relajada" }, { v: 1, t: "1 - Ceño fruncido ocasional, desinterés" }, { v: 2, t: "2 - Ceño fruncido constante, mandíbula apretada" }] },
+      { label: "2. Piernas (Posición y tensión)", state: flaccLegs, set: setFlaccLegs, opts: [{ v: 0, t: "0 - Normales / Relajadas" }, { v: 1, t: "1 - Inquietas, tensas o flexionadas" }, { v: 2, t: "2 - Pataleando, encogidas o muy rígidas" }] },
+      { label: "3. Actividad", state: flaccActivity, set: setFlaccActivity, opts: [{ v: 0, t: "0 - Acostado tranquilo, se mueve fácil" }, { v: 1, t: "1 - Se retuerce, tenso, cambia de posición" }, { v: 2, t: "2 - Arqueado, rígido, espasmos constantes" }] },
+      { label: "4. Llanto", state: flaccCry, set: setFlaccCry, opts: [{ v: 0, t: "0 - No llora (despierto/dormido)" }, { v: 1, t: "1 - Quejidos, llanto/lloriqueo ocasional" }, { v: 2, t: "2 - Llanto continuo, gritos frecuentes" }] },
+      { label: "5. Consolabilidad", state: flaccConsolability, set: setFlaccConsolability, opts: [{ v: 0, t: "0 - Tranquilo, relajado" }, { v: 1, t: "1 - Se calma con caricias, abrazos o voz" }, { v: 2, t: "2 - Muy difícil de consolar o distraer" }] }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Escala de Dolor FLACC</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Escala observacional para medir la intensidad del dolor en bebés, niños pequeños o pacientes no verbales.</p>
+        </div>
+
+        <div className="space-y-4 text-xs max-h-[380px] overflow-y-auto pr-2">
+          {categories.map((cat, idx) => (
+            <div key={idx} className="space-y-1.5 border-b border-slate-100 pb-3">
+              <label className="font-bold text-slate-700 block">{cat.label}</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {cat.opts.map(opt => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => cat.set(opt.v)}
+                    className={`px-3 py-2 rounded-xl border text-[11px] text-center transition-all cursor-pointer ${
+                      cat.state === opt.v ? 'bg-indigo-650 border-indigo-650 text-white font-bold shadow-sm' : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Resultado Escala FLACC</span>
+            <div className="flex items-center gap-2 justify-center sm:justify-start">
+              <span className="text-3xl font-extrabold text-slate-800">{total}</span>
+              <span className="text-xs font-bold text-slate-400">/ 10 puntos</span>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2 rounded-xl text-xs font-extrabold border shadow-sm ${colorClass}`}>
+            {level}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPediatricDoseCalculator = () => {
+    const dose = parseFloat(pedDosePrescribed) || 0;
+    const mg = parseFloat(pedConcentrationMg) || 0;
+    const ml = parseFloat(pedConcentrationMl) || 0;
+
+    let adminMl = 0;
+    if (mg > 0 && ml > 0 && dose > 0) {
+      adminMl = (dose * ml) / mg;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Dosis Pediátricas (Jarabes / Suspensiones)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el volumen exacto en mililitros (ml) a administrar a partir de la dosis prescrita en miligramos (mg).</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Dosis Prescrita (mg)</label>
+            <input
+              type="number"
+              value={pedDosePrescribed}
+              onChange={(e) => setPedDosePrescribed(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="e.g. 125"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Concentración Jarabe (mg)</label>
+            <input
+              type="number"
+              value={pedConcentrationMg}
+              onChange={(e) => setPedConcentrationMg(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="250"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">en Volumen (ml)</label>
+            <input
+              type="number"
+              value={pedConcentrationMl}
+              onChange={(e) => setPedConcentrationMl(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+              placeholder="5"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Volumen a Administrar</span>
+            <div className="text-3xl font-black text-indigo-750 font-mono">
+              {adminMl > 0 ? adminMl.toFixed(2) : "0.00"} <span className="text-sm font-bold text-slate-500 font-sans">ml</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGestationalAgeCalculator = () => {
+    let result = "Seleccione la Fecha de Última Regla (FUR)";
+    let weeks = 0;
+    let days = 0;
+
+    if (egFurDate) {
+      const fur = new Date(egFurDate);
+      const today = new Date();
+      
+      // Reset hours to compare clean days
+      fur.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+
+      const diffTime = today.getTime() - fur.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 0) {
+        weeks = Math.floor(diffDays / 7);
+        days = diffDays % 7;
+        result = `${weeks} semanas y ${days} días de gestación`;
+      } else {
+        result = "La fecha de la FUR no puede ser en el futuro.";
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Cálculo de Edad Gestacional</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula automáticamente el tiempo de gestación en semanas y días a partir de la FUR.</p>
+        </div>
+
+        <div className="space-y-1.5 max-w-xs text-xs">
+          <label className="font-bold text-slate-700 block">Fecha de Última Regla (FUR)</label>
+          <input
+            type="date"
+            value={egFurDate}
+            onChange={(e) => setEgFurDate(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+          />
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Edad Gestacional Estimada</span>
+            <p className="text-sm font-extrabold text-slate-800 mt-1">{result}</p>
+          </div>
+          {weeks > 0 && (
+            <div className="px-4 py-2 rounded-xl text-[10px] font-extrabold border bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm">
+              Trimestre: {weeks < 13 ? "Primer" : weeks < 27 ? "Segundo" : "Tercer"} Trimestre
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDripRateCalculator = () => {
+    const vol = parseFloat(dripVolume) || 0;
+    const time = parseFloat(dripTime) || 0;
+    const factor = parseFloat(dripFactor) || 20;
+
+    let rate = 0;
+    let mlPerHour = 0;
+    if (vol > 0 && time > 0) {
+      // Drip Rate = (Volume * factor) / (time * 60)
+      rate = (vol * factor) / (time * 60);
+      mlPerHour = vol / time;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Velocidad de Goteo</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el goteo por minuto necesario para completar la infusión parenteral en un tiempo específico.</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Volumen Total (ml)</label>
+            <input
+              type="number"
+              value={dripVolume}
+              onChange={(e) => setDripVolume(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Tiempo de infusión (h)</label>
+            <input
+              type="number"
+              value={dripTime}
+              onChange={(e) => setDripTime(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Factor de Goteo</label>
+            <select
+              value={dripFactor}
+              onChange={(e) => setDripFactor(e.target.value)}
+              className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-500"
+            >
+              <option value="20">Macrogotero (20 got/ml)</option>
+              <option value="15">Macrogotero (15 got/ml)</option>
+              <option value="60">Microgotero (60 got/ml)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase block">Resultados Tasa de Infusión</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-405 uppercase block">Frecuencia Goteo</span>
+              <span className="text-base font-extrabold text-indigo-750 font-mono">{rate > 0 ? rate.toFixed(0) : "0"} {factor == 60 ? "microgotas" : "gotas"} / min</span>
+            </div>
+            <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+              <span className="text-[9px] font-bold text-slate-405 uppercase block">Flujo de Infusión</span>
+              <span className="text-base font-extrabold text-indigo-750 font-mono">{mlPerHour > 0 ? mlPerHour.toFixed(1) : "0.0"} ml/h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInfusionVolumeCalculator = () => {
+    const rate = parseFloat(infusionRate) || 0;
+    const time = parseFloat(infusionTime) || 0;
+    const factor = parseFloat(infusionFactor) || 20;
+
+    let totalVol = 0;
+    if (rate > 0 && time > 0) {
+      // Volume = (rate * time * 60) / factor
+      totalVol = (rate * time * 60) / factor;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Volumen de Infusión</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el volumen total en ml que ingresará en base a un goteo por minuto y el tiempo de infusión.</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Velocidad Goteo (got/min)</label>
+            <input
+              type="number"
+              value={infusionRate}
+              onChange={(e) => setInfusionRate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Duración de infusión (h)</label>
+            <input
+              type="number"
+              value={infusionTime}
+              onChange={(e) => setInfusionTime(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Factor Goteo</label>
+            <select
+              value={infusionFactor}
+              onChange={(e) => setInfusionFactor(e.target.value)}
+              className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-500"
+            >
+              <option value="20">Macrogotero (20 got/ml)</option>
+              <option value="60">Microgotero (60 got/ml)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Volumen Total Calculado</span>
+            <div className="text-3xl font-black text-indigo-750 font-mono">
+              {totalVol > 0 ? totalVol.toFixed(0) : "0"} <span className="text-sm font-bold text-slate-500 font-sans">ml</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInfusionTimeCalculator = () => {
+    const vol = parseFloat(timeVolume) || 0;
+    const rate = parseFloat(timeRate) || 0;
+    const factor = parseFloat(timeFactor) || 20;
+
+    let timeHours = 0;
+    let timeMinutes = 0;
+    let formatResult = "Ingrese valores";
+
+    if (vol > 0 && rate > 0) {
+      // Time (minutes) = (Volume * factor) / rate
+      const totalMinutes = (vol * factor) / rate;
+      timeHours = Math.floor(totalMinutes / 60);
+      timeMinutes = Math.floor(totalMinutes % 60);
+      formatResult = `${timeHours} horas y ${timeMinutes} minutos`;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Tiempo de Infusión</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula cuánto tardará en completarse un suero o solución a partir de su volumen y goteo.</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Volumen Total (ml)</label>
+            <input
+              type="number"
+              value={timeVolume}
+              onChange={(e) => setTimeVolume(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Velocidad Goteo (got/min)</label>
+            <input
+              type="number"
+              value={timeRate}
+              onChange={(e) => setTimeRate(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Factor Goteo</label>
+            <select
+              value={timeFactor}
+              onChange={(e) => setTimeFactor(e.target.value)}
+              className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-500"
+            >
+              <option value="20">Macrogotero (20 got/ml)</option>
+              <option value="60">Microgotero (60 got/ml)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Tiempo Requerido</span>
+            <p className="text-sm font-extrabold text-slate-800 mt-1">{formatResult}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderInjectableDoseCalculator = () => {
+    const dose = parseFloat(injDosePrescribed) || 0;
+    const mg = parseFloat(injPresentationMg) || 0;
+    const ml = parseFloat(injPresentationMl) || 0;
+
+    let adminMl = 0;
+    if (mg > 0 && ml > 0 && dose > 0) {
+      adminMl = (dose * ml) / mg;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Dosis de Inyectables</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula el volumen exacto en ml a extraer de un frasco ampolla o vial para inyecciones IM, IV o SC.</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Dosis Prescrita (mg)</label>
+            <input
+              type="number"
+              value={injDosePrescribed}
+              onChange={(e) => setInjDosePrescribed(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Presentación Ampolla (mg)</label>
+            <input
+              type="number"
+              value={injPresentationMg}
+              onChange={(e) => setInjPresentationMg(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Volumen Ampolla (ml)</label>
+            <input
+              type="number"
+              value={injPresentationMl}
+              onChange={(e) => setInjPresentationMl(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 flex flex-col justify-between gap-3 text-center sm:text-left">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase">Volumen a Administrar</span>
+            <div className="text-3xl font-black text-indigo-750 font-mono">
+              {adminMl > 0 ? adminMl.toFixed(2) : "0.00"} <span className="text-sm font-bold text-slate-500 font-sans">ml</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDextroseConverter = () => {
+    const targetVol = parseFloat(dexTargetVol) || 0;
+    const targetConc = parseFloat(dexTargetConc) || 0;
+    const highConc = parseFloat(dexHighConc) || 50;
+    const lowConc = parseFloat(dexLowConc) || 5;
+
+    let vHigh = 0;
+    let vLow = 0;
+    let valid = false;
+
+    if (targetVol > 0 && targetConc > 0 && highConc > targetConc && targetConc > lowConc) {
+      // Pearson Square formula:
+      // vHigh = targetVol * (targetConc - lowConc) / (highConc - lowConc)
+      // vLow = targetVol - vHigh
+      vHigh = targetVol * (targetConc - lowConc) / (highConc - lowConc);
+      vLow = targetVol - vHigh;
+      valid = true;
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Conversión de Dextrosa</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula la mezcla de Dextrosa hipertónica (ej. 50%) e hipotónica (ej. 5%) para preparar una concentración deseada (ej. 10%).</p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Volumen Deseado (ml)</label>
+            <input
+              type="number"
+              value={dexTargetVol}
+              onChange={(e) => setDexTargetVol(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Conc. Deseada (%)</label>
+            <input
+              type="number"
+              value={dexTargetConc}
+              onChange={(e) => setDexTargetConc(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Conc. Alta (%)</label>
+            <input
+              type="number"
+              value={dexHighConc}
+              onChange={(e) => setDexHighConc(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Conc. Baja (%)</label>
+            <input
+              type="number"
+              value={dexLowConc}
+              onChange={(e) => setDexLowConc(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase block">Instrucciones de Preparación</span>
+          {valid ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+                <span className="text-[9px] font-bold text-slate-450 uppercase block">Volumen Dextrosa {highConc}% (Alta)</span>
+                <span className="text-lg font-extrabold text-indigo-700 font-mono">{vHigh.toFixed(1)} ml</span>
+              </div>
+              <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+                <span className="text-[9px] font-bold text-slate-450 uppercase block">Volumen Dextrosa {lowConc}% (Baja)</span>
+                <span className="text-lg font-extrabold text-indigo-700 font-mono">{vLow.toFixed(1)} ml</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-rose-500 font-bold text-center">La concentración deseada debe estar estrictamente entre la concentración alta y baja.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderChlorideConverter = () => {
+    const vol = parseFloat(clVolume) || 0;
+    const target = parseFloat(clTargetConc) || 0;
+    const high = parseFloat(clHighConc) || 20; // NaCl al 20%
+
+    let naclVol = 0;
+    let waterVol = 0;
+    let valid = false;
+
+    if (vol > 0 && target > 0 && high > target) {
+      // grams of NaCl required = targetVol * targetConc / 100
+      const gramsRequired = (vol * target) / 100;
+      // concentration of high NaCl in g/ml = high / 100 => 20% is 0.2 g/ml
+      const highDensity = high / 100;
+      
+      naclVol = gramsRequired / highDensity;
+      waterVol = vol - naclVol;
+      if (waterVol >= 0) {
+        valid = true;
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-extrabold text-slate-800">Conversión de Cloruro (NaCl)</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Calcula la cantidad de Hipersodio / NaCl hipertónico (ej. 20%) a diluir en agua destilada para preparar soluciones salinas de concentración específica (ej. NaCl 3% o NaCl 0.9%).</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Volumen Deseado (ml)</label>
+            <input
+              type="number"
+              value={clVolume}
+              onChange={(e) => setClVolume(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Conc. Deseada (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={clTargetConc}
+              onChange={(e) => setClTargetConc(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 block">Conc. NaCl Alta (%)</label>
+            <input
+              type="number"
+              value={clHighConc}
+              onChange={(e) => setClHighConc(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase block">Instrucciones de Mezcla</span>
+          {valid ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+                <span className="text-[9px] font-bold text-slate-450 uppercase block">NaCl al {high}% (Hipersodio)</span>
+                <span className="text-lg font-extrabold text-indigo-700 font-mono">{naclVol.toFixed(1)} ml</span>
+              </div>
+              <div className="bg-white border border-indigo-100 rounded-xl p-3 text-center">
+                <span className="text-[9px] font-bold text-slate-450 uppercase block">Agua destilada / Solvente</span>
+                <span className="text-lg font-extrabold text-indigo-700 font-mono">{waterVol.toFixed(1)} ml</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-rose-500 font-bold text-center">Verifique que el volumen deseado sea válido y que la concentración final deseada sea menor que la concentración alta.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
+
     <ErrorBoundary>
       {showLanding ? (
         <div className="min-h-screen bg-slate-900 text-white font-sans flex flex-col relative overflow-hidden">
@@ -3614,131 +5524,216 @@ Justificación del plan: ${analysisResult.justification}`;
         </main>
       )}
 
-      {activeTab === 'calculators' && (
-        <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start no-print">
-          {/* Aside Menu */}
-          <aside className="lg:col-span-4 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 space-y-4">
-            <div>
-              <h2 className="text-base font-extrabold text-slate-800">Suite de Calculadoras</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Selecciona una herramienta clínica.</p>
-            </div>
+      {activeTab === 'calculators' && (() => {
+        const allCalculators = [
+          { id: 'glasgow', name: 'Escala de Glasgow', desc: 'Evalúa la respuesta ocular, verbal y motora para medir el nivel de alerta neurológico.', isPremium: true, cats: ['uci', 'adults'] },
+          { id: 'apgar', name: 'Test de APGAR', desc: 'Valoración rápida del estado de salud y vitalidad del recién nacido al 1er y 5to minuto.', isPremium: true, cats: ['pediatria'] },
+          { id: 'silverman', name: 'Test de Silverman-Andersen', desc: 'Evaluación del grado de dificultad respiratoria en recién nacidos.', isPremium: true, cats: ['pediatria'] },
+          { id: 'abg', name: 'Gases Arteriales (ABG)', desc: 'Intérprete ácido-base avanzado para evaluar acidosis, alcalosis y compensaciones.', isPremium: true, cats: ['uci', 'adults'] },
+          { id: 'braden', name: 'Escala de Braden (UPP)', desc: 'Herramienta predictiva para evaluar el riesgo de presentar úlceras por presión.', isPremium: true, cats: ['adults', 'uci'] },
+          { id: 'downton', name: 'Escala de Downton (Caídas)', desc: 'Estratificación del riesgo de caídas basada en medicación, marcha y déficits.', isPremium: true, cats: ['adults'] },
+          { id: 'fpp', name: 'Fecha Probable de Parto (FPP)', desc: 'Calculadora gestacional para estimar el parto basada en la FUR (Regla Naegele).', isPremium: true, cats: ['obstetricia'] },
+          { id: 'bmi', name: 'Cálculo de IMC', desc: 'Evalúa el estado nutricional calculando la relación entre peso y altura del paciente.', isPremium: false, cats: ['adults', 'pediatria'] },
+          { id: 'dose', name: 'Regla de Tres (Dosis)', desc: 'Cálculo de proporcionalidad estándar para diluciones rápidas y dosificación.', isPremium: false, cats: ['sueroterapia', 'pediatria'] },
+          { id: 'norton', name: 'Escala de Norton Modificada', desc: 'Valoración alternativa del estado físico y riesgo de lesiones por presión.', isPremium: true, cats: ['adults'] },
+          { id: 'barthel', name: 'Índice de Barthel (AVD)', desc: 'Mide la independencia funcional en las 10 principales actividades cotidianas.', isPremium: true, cats: ['adults'] },
+          { id: 'maddox', name: 'Escala de Maddox (Flebitis)', desc: 'Clasifica la gravedad de la flebitis local para guiar el cambio de accesos venosos.', isPremium: true, cats: ['adults'] },
+          { id: 'aldrete', name: 'Escala de Aldrete (Recuperación)', desc: 'Criterio estándar para autorizar el alta del paciente de salas de recuperación postanestésica.', isPremium: true, cats: ['adults'] },
+          { id: 'fam_apgar', name: 'Apgar Familiar', desc: 'Mide el nivel de percepción sobre la funcionalidad y soporte de la familia.', isPremium: true, cats: ['adults'] },
+          { id: 'sc_adults', name: 'Superficie Corporal Adultos', desc: 'Cálculo de área corporal de adultos para dosificar fármacos y quimioterapias.', isPremium: true, cats: ['adults'] },
+          { id: 'sc_kids', name: 'Superficie Corporal Niños', desc: 'Cálculo del área corporal pediátrica empleando la fórmula de Mosteller.', isPremium: true, cats: ['pediatria'] },
+          { id: 'pam', name: 'Presión Arterial Media (PAM)', desc: 'Calcula la presión arterial de perfusión orgánica vital y sus niveles de riesgo.', isPremium: true, cats: ['adults', 'uci'] },
+          { id: 'alcohol', name: 'Conversión de Alcohol a 70°', desc: 'Cálculo de dilución para preparar alcohol desinfectante de 70° a partir de 96°.', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'losses', name: 'Cálculo de Pérdidas Insensibles', desc: 'Estima la evaporación hídrica por piel y respiración con correcciones clínicas.', isPremium: true, cats: ['uci'] },
+          { id: 'inotrope', name: 'Infusión de Inotrópicos', desc: 'Convierte dosificación de vasoactivos (mcg/kg/min) a tasa de bomba (ml/h).', isPremium: true, cats: ['uci'] },
+          { id: 'inotrope_1to1', name: 'Volumen Total Inotrópicos (1:1)', desc: 'Tasa de infusión rápida de inotrópicos para diluciones de concentración conocida.', isPremium: true, cats: ['uci'] },
+          { id: 'apache2', name: 'Escala APACHE II', desc: 'Mide severidad fisiológica y estima la mortalidad intrahospitalaria en UCI.', isPremium: true, cats: ['uci'] },
+          { id: 'tiss28', name: 'Escala TISS-28', desc: 'Evalúa la carga asistencial de enfermería en base a de procedimientos críticos.', isPremium: true, cats: ['uci'] },
+          { id: 'cam_icu', name: 'CAM-ICU (Delirium)', desc: 'Algoritmo para diagnosticar de forma objetiva la presencia de delirium en UCI.', isPremium: true, cats: ['uci'] },
+          { id: 'flacc', name: 'Escala FLACC (Dolor)', desc: 'Valoración objetiva del dolor pediátrico mediante la observación de gestos y llanto.', isPremium: true, cats: ['pediatria'] },
+          { id: 'ped_dose', name: 'Jarabes y Suspensiones Pediátricas', desc: 'Cálculo en ml para suspensiones orales en base a mg indicados y concentración.', isPremium: true, cats: ['pediatria', 'sueroterapia'] },
+          { id: 'eg', name: 'Edad Gestacional (EG)', desc: 'Cálculo del tiempo exacto de embarazo en semanas/días basándose en la FUR.', isPremium: true, cats: ['obstetricia'] },
+          { id: 'drip_rate', name: 'Velocidad de Goteo', desc: 'Calcula gotas/minuto y flujo ml/h para macrogoteros o microgoteros.', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'infusion_volume', name: 'Volumen de Infusión', desc: 'Estima el volumen total infundido a partir de la tasa de goteo y tiempo.', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'infusion_time', name: 'Tiempo de Infusión', desc: 'Calcula la duración en horas/minutos requerida para terminar un suero.', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'injectable_dose', name: 'Dosis de Inyectables', desc: 'Volumen a extraer en ml para fármacos en viales o ampollas diluidas.', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'dextrose', name: 'Conversión de Dextrosa', desc: 'Mezcla de dextrosas para alcanzar la concentración prescrita (Pearson Square).', isPremium: true, cats: ['sueroterapia'] },
+          { id: 'chloride', name: 'Conversión de Cloruro (NaCl)', desc: 'Cálculo de volumen de hipersodio a diluir para preparar soluciones salinas.', isPremium: true, cats: ['sueroterapia'] }
+        ];
 
-            {/* Selector para Mobile (Dropdown) */}
-            <div className="lg:hidden relative">
-              <select
-                id="calculator-selector"
-                value={activeCalculator}
-                onChange={(e) => setActiveCalculator(e.target.value as any)}
-                className="w-full bg-slate-50 text-slate-800 font-extrabold text-xs pl-4 pr-10 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-sans cursor-pointer appearance-none animate-fade-in"
-              >
-                {[
-                  { id: 'glasgow', name: 'Escala de Glasgow', isPremium: true },
-                  { id: 'apgar', name: 'Test de APGAR', isPremium: true },
-                  { id: 'silverman', name: 'Test de Silverman-Andersen', isPremium: true },
-                  { id: 'abg', name: 'Gases Arteriales (ABG)', isPremium: true },
-                  { id: 'braden', name: 'Escala de Braden (UPP)', isPremium: true },
-                  { id: 'downton', name: 'Escala de Downton (Caídas)', isPremium: true },
-                  { id: 'fpp', name: 'Fecha Probable de Parto (FPP)', isPremium: true },
-                  { id: 'bmi', name: 'Cálculo de IMC', isPremium: false },
-                  { id: 'dose', name: 'Regla de Tres (Dosis)', isPremium: false },
-                ].map((calc) => {
-                  const isLocked = calc.isPremium && subscriptionStatus !== 'active';
-                  return (
-                    <option key={calc.id} value={calc.id}>
-                      {calc.name} {isLocked ? ' (🔒 Premium)' : calc.isPremium ? ' (★ Premium)' : ' (Gratis)'}
-                    </option>
-                  );
-                })}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-
-            {/* Listado de botones para Desktop */}
-            <div className="hidden lg:flex flex-col gap-1">
-              {[
-                { id: 'glasgow', name: 'Escala de Glasgow', isPremium: true },
-                { id: 'apgar', name: 'Test de APGAR', isPremium: true },
-                { id: 'silverman', name: 'Test de Silverman-Andersen', isPremium: true },
-                { id: 'abg', name: 'Gases Arteriales (ABG)', isPremium: true },
-                { id: 'braden', name: 'Escala de Braden (UPP)', isPremium: true },
-                { id: 'downton', name: 'Escala de Downton (Caídas)', isPremium: true },
-                { id: 'fpp', name: 'Fecha Probable de Parto (FPP)', isPremium: true },
-                { id: 'bmi', name: 'Cálculo de IMC', isPremium: false },
-                { id: 'dose', name: 'Regla de Tres (Dosis)', isPremium: false },
-              ].map((calc) => {
-                const isActive = activeCalculator === calc.id;
-                const isLocked = calc.isPremium && subscriptionStatus !== 'active';
-                return (
-                  <button
-                    key={calc.id}
-                    onClick={() => setActiveCalculator(calc.id as any)}
-                    className={`w-full px-4 py-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-between cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-650 text-white shadow-md shadow-indigo-600/10'
-                        : 'bg-slate-50 border border-slate-150 hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Activity className="w-4 h-4 shrink-0" />
-                      {calc.name}
-                    </span>
-                    {isLocked ? (
-                      <Lock className="w-3.5 h-3.5 text-amber-500" />
-                    ) : calc.isPremium ? (
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    ) : (
-                      <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded-md">Gratis</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
-          {/* Active Calculator Workspace */}
-          <section className="lg:col-span-8 bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 min-h-[480px] flex flex-col justify-between">
-            {['glasgow', 'apgar', 'silverman', 'abg', 'braden', 'downton', 'fpp'].includes(activeCalculator) && subscriptionStatus !== 'active' ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6">
-                <div className="w-16 h-16 bg-amber-50 rounded-3xl border border-amber-200 flex items-center justify-center animate-pulse">
-                  <Lock className="w-8 h-8 text-amber-600" />
-                </div>
-                <div className="space-y-2 max-w-md">
-                  <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-xl text-[10px] font-bold">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                    Herramienta Diagnóstica Premium
+        return (
+          <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 no-print">
+            {activeCalculator === null ? (
+              <div className="space-y-6">
+                {/* Category Filter bar */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Suite de Calculadoras y Fórmulas Clínicas</h2>
+                    <p className="text-xs text-slate-500 mt-1">Selecciona una herramienta interactiva para tu práctica diaria en enfermería.</p>
                   </div>
-                  <h3 className="text-lg font-extrabold text-slate-800">
-                    Acceso Restringido
-                  </h3>
-                  <p className="text-xs text-slate-500 leading-relaxed px-4">
-                    Esta calculadora y escala clínica está disponible únicamente en el plan Premium de Enfermería NNN. Desbloquea acceso completo e ilimitado para ti.
-                  </p>
+                  
+                  {/* Horizontal scrollable category filters */}
+                  <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 whitespace-nowrap scrollbar-thin">
+                    {[
+                      { id: 'all', label: 'Todas' },
+                      { id: 'adults', label: 'Adultos / Gral' },
+                      { id: 'pediatria', label: 'Pediatría / Neo' },
+                      { id: 'obstetricia', label: 'Obstetricia' },
+                      { id: 'uci', label: 'UCI / Urgencias' },
+                      { id: 'sueroterapia', label: 'Sueroterapia / Dosis' }
+                    ].map(cat => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setActiveCategoryFilter(cat.id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          activeCategoryFilter === cat.id
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                            : 'bg-white border border-slate-200 text-slate-655 hover:bg-slate-50'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={() => setShowPaywallModal(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer font-sans"
-                >
-                  Obtener Plan Premium
-                </button>
+
+                {/* Grid of calculator cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
+                  {allCalculators
+                    .filter(c => activeCategoryFilter === 'all' || c.cats.includes(activeCategoryFilter))
+                    .map(calc => {
+                      const isLocked = calc.isPremium && subscriptionStatus !== 'active';
+                      return (
+                        <button
+                          key={calc.id}
+                          type="button"
+                          onClick={() => setActiveCalculator(calc.id)}
+                          className="bg-white border border-slate-200/90 rounded-3xl p-5 text-left flex flex-col justify-between h-[160px] hover:shadow-lg hover:border-indigo-100 transition-all duration-300 group cursor-pointer relative overflow-hidden"
+                        >
+                          {/* Hover accent decoration */}
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/40 rounded-full blur-2xl group-hover:bg-indigo-100/50 transition-all pointer-events-none"></div>
+                          
+                          <div className="space-y-1.5 relative z-10">
+                            <div className="flex justify-between items-start">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                <Activity className="w-4 h-4" />
+                              </div>
+                              {isLocked ? (
+                                <span className="bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-extrabold px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm">
+                                  <Lock className="w-2.5 h-2.5" /> Premium
+                                </span>
+                              ) : calc.isPremium ? (
+                                <span className="bg-amber-50 text-amber-600 border border-amber-100 text-[9px] font-extrabold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5" /> Premium
+                                </span>
+                              ) : (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-extrabold px-2 py-0.5 rounded-lg">
+                                  Gratis
+                                </span>
+                              )}
+                            </div>
+                            
+                            <h3 className="font-extrabold text-slate-800 text-sm tracking-tight leading-snug pt-1 group-hover:text-indigo-650 transition-colors">
+                              {calc.name}
+                            </h3>
+                          </div>
+
+                          <p className="text-[11px] text-slate-450 leading-normal line-clamp-2 relative z-10">
+                            {calc.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                </div>
               </div>
             ) : (
-              <div className="flex-1">
-                {activeCalculator === 'glasgow' && renderGlasgowCalculator()}
-                {activeCalculator === 'apgar' && renderApgarCalculator()}
-                {activeCalculator === 'silverman' && renderSilvermanCalculator()}
-                {activeCalculator === 'bmi' && renderBmiCalculator()}
-                {activeCalculator === 'fpp' && renderFppCalculator()}
-                {activeCalculator === 'dose' && renderDoseCalculator()}
-                {activeCalculator === 'abg' && renderAbgCalculator()}
-                {activeCalculator === 'braden' && renderBradenCalculator()}
-                {activeCalculator === 'downton' && renderDowntonCalculator()}
+              /* Selected calculator view */
+              <div className="bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 min-h-[500px] flex flex-col justify-between animate-fade-in">
+                {/* Back Button and active calculator details */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 mb-6 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setActiveCalculator(null)}
+                    className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-slate-100 hover:bg-indigo-50 px-3.5 py-2 rounded-xl cursor-pointer"
+                  >
+                    <span>← Volver al Menú</span>
+                  </button>
+                  <div className="text-right hidden sm:block">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-indigo-655 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                      {allCalculators.find(c => c.id === activeCalculator)?.isPremium ? "Premium ★" : "Gratis ✓"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Render either Paywall lock or active workspace calculator */}
+                {activeCalculator !== null && !['bmi', 'dose'].includes(activeCalculator) && subscriptionStatus !== 'active' ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6">
+                    <div className="w-16 h-16 bg-amber-50 rounded-3xl border border-amber-200 flex items-center justify-center animate-pulse">
+                      <Lock className="w-8 h-8 text-amber-600" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-xl text-[10px] font-bold">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                        Herramienta Diagnóstica Premium
+                      </div>
+                      <h3 className="text-lg font-extrabold text-slate-800">
+                        Acceso Restringido
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed px-4">
+                        Esta calculadora y escala clínica está disponible únicamente en el plan Premium de Enfermería NNN. Desbloquea acceso completo e ilimitado para ti.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPaywallModal(true)}
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-md active:scale-95 cursor-pointer font-sans"
+                    >
+                      Obtener Plan Premium
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1">
+                    {activeCalculator === 'glasgow' && renderGlasgowCalculator()}
+                    {activeCalculator === 'apgar' && renderApgarCalculator()}
+                    {activeCalculator === 'silverman' && renderSilvermanCalculator()}
+                    {activeCalculator === 'bmi' && renderBmiCalculator()}
+                    {activeCalculator === 'fpp' && renderFppCalculator()}
+                    {activeCalculator === 'dose' && renderDoseCalculator()}
+                    {activeCalculator === 'abg' && renderAbgCalculator()}
+                    {activeCalculator === 'braden' && renderBradenCalculator()}
+                    {activeCalculator === 'downton' && renderDowntonCalculator()}
+                    {activeCalculator === 'norton' && renderNortonScale()}
+                    {activeCalculator === 'barthel' && renderBarthelIndex()}
+                    {activeCalculator === 'maddox' && renderMaddoxScale()}
+                    {activeCalculator === 'aldrete' && renderAldreteScale()}
+                    {activeCalculator === 'fam_apgar' && renderFamApgarScale()}
+                    {activeCalculator === 'sc_adults' && renderScCalculator()}
+                    {activeCalculator === 'sc_kids' && renderScCalculator()}
+                    {activeCalculator === 'pam' && renderPamCalculator()}
+                    {activeCalculator === 'alcohol' && renderAlcoholDilutionCalculator()}
+                    {activeCalculator === 'losses' && renderSensibleLossesCalculator()}
+                    {activeCalculator === 'inotrope' && renderInotropeCalculator()}
+                    {activeCalculator === 'inotrope_1to1' && renderInotrope1to1Calculator()}
+                    {activeCalculator === 'apache2' && renderApache2Scale()}
+                    {activeCalculator === 'tiss28' && renderTiss28Scale()}
+                    {activeCalculator === 'cam_icu' && renderCamIcuScale()}
+                    {activeCalculator === 'flacc' && renderFlaccScale()}
+                    {activeCalculator === 'ped_dose' && renderPediatricDoseCalculator()}
+                    {activeCalculator === 'eg' && renderGestationalAgeCalculator()}
+                    {activeCalculator === 'drip_rate' && renderDripRateCalculator()}
+                    {activeCalculator === 'infusion_volume' && renderInfusionVolumeCalculator()}
+                    {activeCalculator === 'infusion_time' && renderInfusionTimeCalculator()}
+                    {activeCalculator === 'injectable_dose' && renderInjectableDoseCalculator()}
+                    {activeCalculator === 'dextrose' && renderDextroseConverter()}
+                    {activeCalculator === 'chloride' && renderChlorideConverter()}
+                  </div>
+                )}
               </div>
             )}
-          </section>
-        </main>
-      )}
+          </main>
+        );
+      })()}
 
       {/* PRINT VIEW (Active Workspace) */}
       {analysisResult && (
