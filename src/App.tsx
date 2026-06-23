@@ -409,6 +409,17 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('#pes-nanda-search-container')) {
+        setShowNandaDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleDocumentClick);
+    return () => document.removeEventListener('click', handleDocumentClick);
+  }, []);
+
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -4212,13 +4223,24 @@ Justificación del plan: ${analysisResult.justification}`;
       }
     };
 
-    const filteredNanda = pesSearchNanda.trim() === ''
-      ? DIAGNOSES.slice(0, 15)
+    const filteredNandaRaw = pesSearchNanda.trim() === ''
+      ? DIAGNOSES
       : DIAGNOSES.filter(d => 
           d.name.toLowerCase().includes(pesSearchNanda.toLowerCase()) || 
           d.code.includes(pesSearchNanda) || 
           (d.definition && d.definition.toLowerCase().includes(pesSearchNanda.toLowerCase()))
         );
+
+    // Deduplicate by code
+    const uniqueNanda: typeof DIAGNOSES = [];
+    const seenCodes = new Set<string>();
+    for (const d of filteredNandaRaw) {
+      if (!seenCodes.has(d.code)) {
+        seenCodes.add(d.code);
+        uniqueNanda.push(d);
+      }
+    }
+    const filteredNanda = uniqueNanda.slice(0, 15);
 
     return (
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -4256,7 +4278,7 @@ Justificación del plan: ${analysisResult.justification}`;
             </div>
           </div>
 
-          <div className="space-y-2 relative">
+          <div id="pes-nanda-search-container" className="space-y-2 relative">
             <label className="text-[11px] font-bold text-slate-455 uppercase block font-sans">1. Diagnóstico NANDA (Problema)</label>
             <div className="relative">
               <input
@@ -4268,9 +4290,35 @@ Justificación del plan: ${analysisResult.justification}`;
                   setShowNandaDropdown(true);
                 }}
                 onFocus={() => setShowNandaDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (filteredNanda.length > 0) {
+                      const firstMatch = filteredNanda[0];
+                      setPesSelectedNanda(firstMatch);
+                      setPesSearchNanda(`NANDA ${firstMatch.code}: ${firstMatch.name}`);
+                      setShowNandaDropdown(false);
+                      setPesResult(null);
+                    }
+                  }
+                }}
                 className="w-full pl-3 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs bg-slate-50/50 font-sans"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3.5" />
+              <button
+                type="button"
+                onClick={() => {
+                  if (filteredNanda.length > 0) {
+                    const firstMatch = filteredNanda[0];
+                    setPesSelectedNanda(firstMatch);
+                    setPesSearchNanda(`NANDA ${firstMatch.code}: ${firstMatch.name}`);
+                    setShowNandaDropdown(false);
+                    setPesResult(null);
+                  }
+                }}
+                className="absolute right-3 top-3 text-slate-400 hover:text-indigo-650 transition-colors cursor-pointer"
+              >
+                <Search className="w-4.5 h-4.5" />
+              </button>
             </div>
 
             {showNandaDropdown && (
