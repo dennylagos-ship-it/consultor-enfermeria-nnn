@@ -4451,7 +4451,7 @@ Justificación del plan: ${analysisResult.justification}`;
                     }
                   }
                 }}
-                className="w-full pl-3 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-xs bg-slate-50/50 font-sans"
+                className="w-full pl-3 pr-10 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-base md:text-xs bg-slate-50/50 font-sans"
               />
               <button
                 type="button"
@@ -4539,7 +4539,7 @@ Justificación del plan: ${analysisResult.justification}`;
                   setPesResult(null);
                 }}
                 rows={3}
-                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-slate-50/50 resize-none font-sans"
+                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base md:text-xs bg-slate-50/50 resize-none font-sans"
               />
 
               {pesSelectedNanda && pesSelectedNanda.relatedFactors && pesSelectedNanda.relatedFactors.length > 0 && (
@@ -4581,7 +4581,7 @@ Justificación del plan: ${analysisResult.justification}`;
                   setPesResult(null);
                 }}
                 rows={3}
-                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs bg-slate-50/50 resize-none font-sans"
+                className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base md:text-xs bg-slate-50/50 resize-none font-sans"
               />
             </div>
           )}
@@ -4748,7 +4748,7 @@ Justificación del plan: ${analysisResult.justification}`;
                             {pesSelectedNoc.indicators.map((ind: { code: string; name: string }, idx: number) => {
                               const isChecked = pesSelectedIndicators.includes(ind.code);
                               return (
-                                <label key={idx} className="flex items-start gap-2 text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
+                                <label key={idx} className="flex items-start gap-2.5 py-1 text-[11px] md:text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
@@ -4786,7 +4786,7 @@ Justificación del plan: ${analysisResult.justification}`;
                             {pesSelectedNic.activities.map((act: string, idx: number) => {
                               const isChecked = pesSelectedActivities.includes(act);
                               return (
-                                <label key={idx} className="flex items-start gap-2 text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
+                                <label key={idx} className="flex items-start gap-2.5 py-1 text-[11px] md:text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
                                     checked={isChecked}
@@ -4867,7 +4867,7 @@ Justificación del plan: ${analysisResult.justification}`;
                       value={patientName}
                       onChange={(e) => setPatientName(e.target.value)}
                       placeholder="Ej. Juan Pérez García..."
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-800 font-sans"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base md:text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-slate-800 font-sans"
                     />
                   </div>
                 )}
