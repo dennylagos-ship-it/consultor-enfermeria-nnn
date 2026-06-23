@@ -150,6 +150,12 @@ export default function App() {
   const [pesCopied, setPesCopied] = useState<boolean>(false);
   const [pesError, setPesError] = useState<string>('');
   const [showNandaDropdown, setShowNandaDropdown] = useState<boolean>(false);
+  const [pesSelectedNoc, setPesSelectedNoc] = useState<any | null>(null);
+  const [pesSelectedNic, setPesSelectedNic] = useState<any | null>(null);
+  const [pesSelectedIndicators, setPesSelectedIndicators] = useState<string[]>([]);
+  const [pesSelectedActivities, setPesSelectedActivities] = useState<string[]>([]);
+  const [pesSoapieResult, setPesSoapieResult] = useState<string>('');
+  const [pesSoapieGenerating, setPesSoapieGenerating] = useState<boolean>(false);
 
   // Silverman-Andersen states
   const [silvermanThorax, setSilvermanThorax] = useState<number>(0);
@@ -4176,6 +4182,11 @@ Justificación del plan: ${analysisResult.justification}`;
     setPesLoading(true);
     setPesError('');
     setPesResult(null);
+    setPesSelectedNoc(null);
+    setPesSelectedNic(null);
+    setPesSelectedIndicators([]);
+    setPesSelectedActivities([]);
+    setPesSoapieResult('');
 
     try {
       const response = await fetch('/api/ai/generate-pes', {
@@ -4195,6 +4206,12 @@ Justificación del plan: ${analysisResult.justification}`;
       if (response.ok) {
         const data = await response.json();
         setPesResult(data.result);
+        
+        // Find and link best NOC & NIC based on NANDA name and definition
+        const bestNoc = findBestNoc(pesSelectedNanda.name, pesSelectedNanda.definition);
+        const bestNic = findBestNic(pesSelectedNanda.name, pesSelectedNanda.definition);
+        setPesSelectedNoc(bestNoc);
+        setPesSelectedNic(bestNic);
       } else {
         const errData = await response.json();
         setPesError(errData.message || "Error al estructurar el diagnóstico.");
@@ -4204,6 +4221,39 @@ Justificación del plan: ${analysisResult.justification}`;
       setPesError("Error de conexión al servicio de IA.");
     } finally {
       setPesLoading(false);
+    }
+  };
+
+  const handleGeneratePesSoapie = async () => {
+    if (!pesResult || !pesSelectedNoc || !pesSelectedNic) return;
+    setPesSoapieGenerating(true);
+    setPesSoapieResult('');
+    try {
+      const response = await fetch('/api/ai/generate-soapie', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          nandaName: pesResult.formattedDiagnosis,
+          nocName: `${pesSelectedNoc.code} - ${pesSelectedNoc.name}`,
+          nicName: `${pesSelectedNic.code} - ${pesSelectedNic.name}`,
+          activities: pesSelectedActivities.length > 0 ? pesSelectedActivities : ["Vigilancia clínica general y cuidados de enfermería"],
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPesSoapieResult(data.soapie);
+      } else {
+        alert("No se pudo generar la nota SOAPIE.");
+      }
+    } catch (err) {
+      console.error("Error generating PES SOAPIE:", err);
+      alert("Error al contactar al servicio de SOAPIE.");
+    } finally {
+      setPesSoapieGenerating(false);
     }
   };
 
@@ -4632,6 +4682,199 @@ Justificación del plan: ${analysisResult.justification}`;
                 <p className="text-xs italic leading-relaxed text-amber-900">
                   "{pesResult.pedagogicalAdvice}"
                 </p>
+              </div>
+
+              {/* NOC / NIC / SOAPIE Integration */}
+              <div className="bg-white border border-slate-200/90 rounded-3xl p-6 space-y-6 shadow-md font-sans">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 font-sans">Plan de Cuidados Asociado</h3>
+                  <p className="text-xs text-slate-500 font-sans">Resultados NOC e Intervenciones NIC vinculados clínicamente.</p>
+                </div>
+
+                <div className="space-y-4 divide-y divide-slate-100">
+                  {/* NOC */}
+                  {pesSelectedNoc && (
+                    <div className="space-y-3 pb-4">
+                      <div>
+                        <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-indigo-50 text-indigo-850 rounded">CRITERIO DE EVALUACIÓN (NOC)</span>
+                        <h4 className="text-xs font-extrabold text-slate-850 leading-tight mt-1">Cód. {pesSelectedNoc.code} - {pesSelectedNoc.name}</h4>
+                        <p className="text-[10px] text-slate-500 leading-normal mt-0.5">{pesSelectedNoc.definition}</p>
+                      </div>
+
+                      {pesSelectedNoc.indicators && pesSelectedNoc.indicators.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider block font-sans">Selecciona los Indicadores NOC:</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 max-h-36 overflow-y-auto">
+                            {pesSelectedNoc.indicators.map((ind: string, idx: number) => {
+                              const isChecked = pesSelectedIndicators.includes(ind);
+                              return (
+                                <label key={idx} className="flex items-start gap-2 text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setPesSelectedIndicators([...pesSelectedIndicators, ind]);
+                                      } else {
+                                        setPesSelectedIndicators(pesSelectedIndicators.filter(i => i !== ind));
+                                      }
+                                    }}
+                                    className="mt-0.5"
+                                  />
+                                  <span>{ind}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* NIC */}
+                  {pesSelectedNic && (
+                    <div className="space-y-3 pt-4 pb-4">
+                      <div>
+                        <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 bg-indigo-50 text-indigo-850 rounded">INTERVENCIÓN DE ENFERMERÍA (NIC)</span>
+                        <h4 className="text-xs font-extrabold text-slate-855 leading-tight mt-1">Cód. {pesSelectedNic.code} - {pesSelectedNic.name}</h4>
+                      </div>
+
+                      {pesSelectedNic.activities && pesSelectedNic.activities.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider block font-sans">Selecciona las Actividades NIC:</span>
+                          <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 max-h-40 overflow-y-auto">
+                            {pesSelectedNic.activities.map((act: string, idx: number) => {
+                              const isChecked = pesSelectedActivities.includes(act);
+                              return (
+                                <label key={idx} className="flex items-start gap-2 text-[10px] leading-tight text-slate-650 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setPesSelectedActivities([...pesSelectedActivities, act]);
+                                      } else {
+                                        setPesSelectedActivities(pesSelectedActivities.filter(a => a !== act));
+                                      }
+                                    }}
+                                    className="mt-0.5"
+                                  />
+                                  <span>{act}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SOAPIE Note Generator */}
+                  <div className="pt-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-extrabold tracking-wider bg-slate-150 text-slate-700 px-2 py-0.5 rounded uppercase font-mono">Nota de Evolución (SOAPIE)</span>
+                      <button
+                        onClick={handleGeneratePesSoapie}
+                        disabled={pesSoapieGenerating || !pesSelectedNoc || !pesSelectedNic}
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-[10px] flex items-center gap-1.5 transition-all cursor-pointer ${
+                          pesSoapieGenerating
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                        }`}
+                      >
+                        {pesSoapieGenerating ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Generando SOAPIE...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 text-indigo-500" />
+                            <span>Generar SOAPIE con IA</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {pesSoapieResult && (
+                      <div className="bg-slate-900 text-slate-200 border border-slate-850 p-4.5 rounded-2xl space-y-2 relative shadow-inner">
+                        <div className="absolute right-3 top-3">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(pesSoapieResult);
+                              alert("Nota SOAPIE copiada.");
+                            }}
+                            className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10 transition-all cursor-pointer"
+                            title="Copiar SOAPIE"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <pre className="text-[11px] font-mono whitespace-pre-wrap leading-relaxed pr-6 select-all max-h-48 overflow-y-auto">
+                          {pesSoapieResult}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Final Buttons */}
+                <div className="pt-4 border-t border-slate-100 flex gap-3">
+                  <button
+                    onClick={() => {
+                      if (!pesResult) return;
+                      let planText = `=========================================\n`;
+                      planText += `   PLAN DE CUIDADOS DE ENFERMERÍA (PES)\n`;
+                      planText += `=========================================\n\n`;
+                      planText += `1. DIAGNÓSTICO NANDA-I (Estructura PES):\n`;
+                      planText += `${pesResult.formattedDiagnosis}\n\n`;
+                      planText += `DESGLOSE PES:\n`;
+                      planText += `- Problema (P): ${pesResult.problem}\n`;
+                      if (pesType !== 'promotion') {
+                        planText += `- Etiología (E): ${pesResult.etiology}\n`;
+                      }
+                      if (pesType !== 'risk') {
+                        planText += `- Signos/Síntomas (S): ${pesResult.signsSymptoms}\n`;
+                      }
+                      planText += `\n-----------------------------------------\n\n`;
+                      if (pesSelectedNoc) {
+                        planText += `2. RESULTADO NOC (Esperado):\n`;
+                        planText += `${pesSelectedNoc.code} - ${pesSelectedNoc.name}\n`;
+                        if (pesSelectedIndicators.length > 0) {
+                          planText += `Indicadores seleccionados:\n`;
+                          pesSelectedIndicators.forEach(ind => {
+                            planText += `  [x] ${ind}\n`;
+                          });
+                        }
+                        planText += `\n`;
+                      }
+                      if (pesSelectedNic) {
+                        planText += `3. INTERVENCIÓN NIC (Acciones):\n`;
+                        planText += `${pesSelectedNic.code} - ${pesSelectedNic.name}\n`;
+                        if (pesSelectedActivities.length > 0) {
+                          planText += `Actividades seleccionadas:\n`;
+                          pesSelectedActivities.forEach(act => {
+                            planText += `  [x] ${act}\n`;
+                          });
+                        }
+                        planText += `\n`;
+                      }
+                      if (pesSoapieResult) {
+                        planText += `-----------------------------------------\n`;
+                        planText += `4. NOTA DE EVOLUCIÓN (SOAPIE):\n`;
+                        planText += `${pesSoapieResult}\n`;
+                      }
+                      planText += `=========================================`;
+
+                      navigator.clipboard.writeText(planText);
+                      alert("¡Plan de cuidados completo copiado!");
+                    }}
+                    disabled={!pesResult}
+                    className="flex-1 py-3 bg-indigo-650 hover:bg-indigo-750 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.99] transition-all cursor-pointer font-sans"
+                  >
+                    <CopyCheck className="w-4 h-4" /> Copiar Plan de Cuidados Completo
+                  </button>
+                </div>
               </div>
             </div>
           )}
