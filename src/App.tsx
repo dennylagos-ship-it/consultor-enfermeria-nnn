@@ -34,7 +34,9 @@ import {
   Trash2,
   Printer,
   Calculator,
-  Lock
+  Lock,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 import { Diagnosis, NocOutcome, NicIntervention } from './types';
 import { DIAGNOSES, NOC_OUTCOMES, NIC_INTERVENTIONS, NANDA_DOMAINS, findBestNoc, findBestNic } from './data';
@@ -347,6 +349,21 @@ export default function App() {
   // Paywall Modal State
   const [showPaywallModal, setShowPaywallModal] = useState<boolean>(false);
 
+  // Support / Report Bug Modal States
+  const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
+  const [supportEmail, setSupportEmail] = useState<string>('');
+  const [supportType, setSupportType] = useState<'bug' | 'help' | 'feedback'>('help');
+  const [supportMessage, setSupportMessage] = useState<string>('');
+  const [supportLoading, setSupportLoading] = useState<boolean>(false);
+  const [supportSuccess, setSupportSuccess] = useState<boolean>(false);
+  const [supportError, setSupportError] = useState<string>('');
+
+  useEffect(() => {
+    if (user && user.email) {
+      setSupportEmail(user.email);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (isFirebaseMock) {
       setUser({ email: 'mock@enfermeria.com', uid: 'mock_uid' });
@@ -510,6 +527,50 @@ export default function App() {
     } catch (err) {
       console.error("Stripe subscribe error:", err);
       alert("Error al iniciar el pago de suscripción.");
+    }
+  };
+
+  const handleSendSupportMessage = async () => {
+    if (!supportEmail.trim()) {
+      setSupportError("El correo electrónico es obligatorio.");
+      return;
+    }
+    if (!supportMessage.trim()) {
+      setSupportError("El mensaje no puede estar vacío.");
+      return;
+    }
+    if (supportMessage.trim().length < 10) {
+      setSupportError("Por favor, describe el problema con más detalle (mínimo 10 caracteres).");
+      return;
+    }
+
+    setSupportLoading(true);
+    setSupportError('');
+
+    try {
+      const response = await fetch('/api/support/message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': idToken ? `Bearer ${idToken}` : ''
+        },
+        body: JSON.stringify({
+          email: supportEmail,
+          type: supportType,
+          message: supportMessage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("API responded with an error");
+      }
+
+      setSupportSuccess(true);
+    } catch (err) {
+      console.error("Support send error:", err);
+      setSupportError("No se pudo enviar el reporte. Por favor, verifica tu conexión o escríbenos directamente a soporte@plataformannn.com");
+    } finally {
+      setSupportLoading(false);
     }
   };
 
@@ -5409,8 +5470,14 @@ Justificación del plan: ${analysisResult.justification}`;
           </main>
 
           {/* Footer */}
-          <footer className="py-6 border-t border-white/5 text-center text-[10px] text-slate-500 relative z-10">
-            Enfermería NNN • Soporte Offline & Asistente Gemini Activos
+          <footer className="py-6 border-t border-white/5 text-center text-[10px] text-slate-500 relative z-10 flex flex-col items-center gap-2">
+            <p>Enfermería NNN • Soporte Offline & Asistente Gemini Activos</p>
+            <button
+              onClick={() => setShowSupportModal(true)}
+              className="text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1.5 cursor-pointer font-bold bg-transparent border-none"
+            >
+              <HelpCircle className="w-3.5 h-3.5" /> Soporte Técnico / Reportar Fallo
+            </button>
           </footer>
         </div>
       ) : (
@@ -7035,10 +7102,16 @@ Justificación del plan: ${analysisResult.justification}`;
       )}
 
       {/* Subtle page footer */}
-      <footer className="py-6 border-t border-slate-200/60 text-center bg-white mt-12 no-print">
+      <footer className="py-6 border-t border-slate-200/60 text-center bg-white mt-12 no-print flex flex-col items-center justify-center gap-1.5">
         <p className="text-[10px] text-slate-405 font-bold uppercase tracking-wider">
           Enfermería NNN • Taxonomías NANDA-I 2024-2026, NOC 7ª Ed., NIC 8ª Ed.
         </p>
+        <button
+          onClick={() => setShowSupportModal(true)}
+          className="text-[10px] font-bold text-indigo-650 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer bg-transparent border-none"
+        >
+          <HelpCircle className="w-3.5 h-3.5" /> ¿Necesitas ayuda o quieres reportar un fallo?
+        </button>
       </footer>
 
       </div>
@@ -7367,6 +7440,131 @@ Justificación del plan: ${analysisResult.justification}`;
                 Cerrar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. SUPPORT / REPORT BUG MODAL */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-6 relative animate-scale-up">
+            <button
+              onClick={() => {
+                setShowSupportModal(false);
+                setSupportSuccess(false);
+                setSupportError('');
+                setSupportMessage('');
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {!supportSuccess ? (
+              <div className="space-y-4">
+                <div>
+                  <span className="text-[9px] font-bold font-mono px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg uppercase">
+                    Ayuda y Soporte
+                  </span>
+                  <h3 className="text-lg font-extrabold text-slate-800 mt-2 leading-tight">
+                    ¿Cómo podemos ayudarte?
+                  </h3>
+                  <p className="text-[10px] text-slate-450 mt-1">
+                    Envíanos tu consulta, duda o reporte de fallos y te responderemos a la brevedad.
+                  </p>
+                </div>
+
+                {supportError && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[10px] font-bold">
+                    {supportError}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tu Correo Electrónico</label>
+                    <input
+                      type="email"
+                      value={supportEmail}
+                      onChange={(e) => setSupportEmail(e.target.value)}
+                      placeholder="ejemplo@correo.com"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-sans"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo de Solicitud</label>
+                    <select
+                      value={supportType}
+                      onChange={(e: any) => setSupportType(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-sans"
+                    >
+                      <option value="help">Solicitar Ayuda (Soporte)</option>
+                      <option value="bug">Reportar un Fallo / Error (Bug)</option>
+                      <option value="feedback">Enviar Sugerencia / Feedback</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Mensaje / Descripción</label>
+                    <textarea
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      placeholder="Describe aquí detalladamente el fallo o la ayuda que necesitas..."
+                      rows={4}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 font-sans resize-none"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowSupportModal(false);
+                      setSupportMessage('');
+                      setSupportError('');
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-[10px] transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    disabled={supportLoading}
+                    onClick={handleSendSupportMessage}
+                    className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold rounded-xl text-[10px] flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-indigo-650/15"
+                  >
+                    {supportLoading ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Enviando...
+                      </>
+                    ) : 'Enviar Mensaje'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6 space-y-4">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-slate-800 text-sm">¡Mensaje Recibido!</h4>
+                  <p className="text-[10px] text-slate-455 max-w-[240px] mx-auto leading-normal">
+                    Hemos registrado tu solicitud. Nos pondremos en contacto contigo a través de <strong>{supportEmail}</strong> lo antes posible.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSupportModal(false);
+                    setSupportSuccess(false);
+                    setSupportMessage('');
+                  }}
+                  className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-[10px] transition-all cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -837,6 +837,47 @@ async function startServer() {
       res.status(500).json({ error: "No se pudo acceder al portal de Stripe." });
     }
   });
+
+  // Submit support message / bug report
+  app.post("/api/support/message", async (req: express.Request, res: express.Response) => {
+    const { email, type, message } = req.body;
+
+    if (!email || !type || !message) {
+      return res.status(400).json({ error: "Todos los campos son obligatorios (email, tipo, mensaje)." });
+    }
+
+    try {
+      let uid = "anonymous";
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ") && isFirebaseConfigured) {
+        const idToken = authHeader.split("Bearer ")[1];
+        try {
+          const decodedToken = await getAuth().verifyIdToken(idToken);
+          uid = decodedToken.uid;
+        } catch (authErr) {
+          // Silent catch, keep anonymous
+        }
+      }
+
+      if (isFirebaseConfigured) {
+        await getFirestore().collection("support_messages").add({
+          email,
+          type,
+          message,
+          uid,
+          timestamp: Timestamp.now(),
+        });
+      } else {
+        console.warn("[Support] Firebase inactivo. Simulando guardado de mensaje:", { email, type, message, uid });
+      }
+
+      res.json({ success: true, message: "Mensaje recibido correctamente." });
+    } catch (err: any) {
+      console.error("[Support] Error guardando mensaje de soporte:", err.message || err);
+      res.status(500).json({ error: "No se pudo enviar el mensaje de soporte." });
+    }
+  });
+
   app.post("/api/search-taxonomy", requireAuth, async (req, res) => {
     const authReq = req as AuthenticatedRequest;
     if (authReq.user?.subscriptionStatus !== "active") {
