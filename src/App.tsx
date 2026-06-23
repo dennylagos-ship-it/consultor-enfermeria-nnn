@@ -4317,6 +4317,12 @@ Justificación del plan: ${analysisResult.justification}`;
       const q = query.toLowerCase().trim();
       if (q === '') return DIAGNOSES;
 
+      // Direct exact code match
+      const exactCodeMatch = DIAGNOSES.find(d => d.code === q);
+      if (exactCodeMatch) {
+        return [exactCodeMatch];
+      }
+
       const words = q.replace(/[^a-z0-9áéíóúñ]/g, ' ').split(/\s+/).filter(w => w.length > 0);
       if (words.length === 0) return DIAGNOSES;
 
@@ -4348,34 +4354,78 @@ Justificación del plan: ${analysisResult.justification}`;
       };
 
       const searchTerms = new Set<string>();
+      const stemTerms = new Set<string>();
+      
       words.forEach(w => {
         searchTerms.add(w);
         if (w.length > 4) {
-          searchTerms.add(w.substring(0, 4));
+          stemTerms.add(w.substring(0, 4));
         }
         if (SYNONYMS[w]) {
           SYNONYMS[w].forEach(syn => {
             searchTerms.add(syn);
             if (syn.length > 4) {
-              searchTerms.add(syn.substring(0, 4));
+              const stem = syn.substring(0, 4);
+              // Avoid adding generic 4-character stems for short synonyms that cause false positives
+              if (stem !== 'conf' && stem !== 'como') {
+                stemTerms.add(stem);
+              }
             }
           });
         }
       });
 
-      return DIAGNOSES.filter(d => {
+      const scored = DIAGNOSES.map(d => {
+        let score = 0;
         const name = d.name.toLowerCase();
         const code = d.code;
         const definition = d.definition ? d.definition.toLowerCase() : '';
         const domain = d.domain ? d.domain.toLowerCase() : '';
 
-        return Array.from(searchTerms).some(term => 
-          name.includes(term) || 
-          code.includes(term) || 
-          definition.includes(term) || 
-          domain.includes(term)
-        );
+        // 1. Exact or partial code matches
+        if (code.includes(q)) {
+          score += 100;
+          if (code === q) score += 500;
+        }
+
+        // 2. Full query matches on name
+        if (name.includes(q)) {
+          score += 80;
+          if (name.startsWith(q)) score += 40;
+          if (name === q) score += 200;
+        }
+
+        // 3. Exact word/synonym matches
+        searchTerms.forEach(term => {
+          if (name.includes(term)) {
+            score += 50;
+            if (name.startsWith(term)) score += 20;
+          }
+          if (definition.includes(term)) {
+            score += 10;
+          }
+          if (domain.includes(term)) {
+            score += 5;
+          }
+        });
+
+        // 4. Stem matches (lower weight)
+        stemTerms.forEach(stem => {
+          if (name.includes(stem)) {
+            score += 15;
+          }
+          if (definition.includes(stem)) {
+            score += 3;
+          }
+        });
+
+        return { diagnosis: d, score };
       });
+
+      return scored
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.diagnosis);
     };
 
     const filteredNandaRaw = getSmartSearchMatches(pesSearchNanda);
