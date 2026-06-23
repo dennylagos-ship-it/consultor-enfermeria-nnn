@@ -4664,6 +4664,91 @@ Justificación del plan: ${analysisResult.justification}`;
               </div>
             </div>
 
+            {/* PES Explanation Section */}
+            <div className="bg-gradient-to-r from-indigo-950/40 via-slate-900/50 to-emerald-950/20 border border-indigo-500/20 rounded-3xl p-6 md:p-8 space-y-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="space-y-2 text-left">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">Metodología Académica</span>
+                <h3 className="text-xl md:text-2xl font-black text-white">La Estructura PES de Diagnósticos</h3>
+                <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                  Cualquier enfermero experto sabe que formular un diagnóstico preciso requiere rigor científico. El formato <b>PES</b> es el estándar clínico para redactar juicios diagnósticos ordenados bajo la taxonomía NANDA-I.
+                </p>
+              </div>
+
+              {/* Three column PES breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                {/* P */}
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl space-y-2.5 relative">
+                  <div className="w-8 h-8 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center">P</div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Problema (Etiqueta NANDA)</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Identifica el estado o respuesta del paciente. Describe la etiqueta diagnóstica oficial de la taxonomía (ej: <i>Dolor agudo</i>).
+                  </p>
+                </div>
+
+                {/* E */}
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl space-y-2.5 relative">
+                  <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-900 font-black text-xs flex items-center justify-center font-sans">E</div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Etiología / Causa (R/C)</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Factores relacionados o de riesgo que originan o propician el problema. Se vincula usando el conector <b>Relacionado con (R/C)</b>.
+                  </p>
+                </div>
+
+                {/* S */}
+                <div className="bg-white/[0.03] border border-white/5 p-5 rounded-2xl space-y-2.5 relative">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-black text-xs flex items-center justify-center font-sans">S</div>
+                  <h4 className="font-extrabold text-sm text-slate-200">Signos y Síntomas (M/P)</h4>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Características definitorias que demuestran el problema (manifestaciones clínicas). Se vincula usando <b>Manifestado por (M/P)</b>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Redaction Rules Summary Box */}
+              <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-4.5 space-y-3">
+                <span className="text-[9px] font-bold text-indigo-300 uppercase tracking-wider block">Reglas de Redacción NANDA-I Oficiales</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-rose-400 block">1. Diagnóstico Real</span>
+                    <p className="text-[10px] text-slate-350 leading-normal">
+                      Requiere los 3 componentes: <b className="text-white">Problema</b> (R/C) <b className="text-white">Etiología</b> (M/P) <b className="text-white">Signos/Síntomas</b>.
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-4">
+                    <span className="text-[10px] font-bold text-amber-400 block">2. Diagnóstico de Riesgo</span>
+                    <p className="text-[10px] text-slate-350 leading-normal">
+                      Solo requiere: <b className="text-white">Problema de riesgo</b> (R/C) <b className="text-white">Factor de riesgo</b>. (No existe manifestación clínica aún).
+                    </p>
+                  </div>
+                  <div className="space-y-1 border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-4">
+                    <span className="text-[10px] font-bold text-emerald-400 block">3. Promoción de la Salud</span>
+                    <p className="text-[10px] text-slate-350 leading-normal">
+                      Requiere: <b className="text-white">Problema de bienestar</b> (M/P) <b className="text-white">Conductas de mejora</b>. (No hay etiología).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Call-to-action to use the tool */}
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-2 border-t border-white/5">
+                <div className="text-left">
+                  <h4 className="text-xs font-extrabold text-indigo-200">¿Quieres redactar uno ahora mismo?</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Hemos añadido un nuevo Creador/Estructurador PES interactivo asistido por IA.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowLanding(false);
+                    setActiveTab('pes');
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-[11px] transition-all cursor-pointer font-sans shadow-md shadow-indigo-600/20 active:scale-[0.98]"
+                >
+                  Abrir Estructurador PES
+                </button>
+              </div>
+            </div>
+
             {/* Core Instruction Steps Grid */}
             <div className="space-y-6">
               <div className="text-center md:text-left">
