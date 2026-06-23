@@ -786,8 +786,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Impacto fecal",
       "Postura inadecuada para ir al baño"
     ],
-    "defaultNocCode": "Not Provided in Source",
-    "defaultNicCode": "Not Provided in Source",
+    "defaultNocCode": "0503",
+    "defaultNicCode": "0590",
     "serviceContext": "medicina_interna",
     "domain": "Dominio 3. Eliminación e intercambio",
     "class": "Clase 1. Función urinaria"
@@ -1070,8 +1070,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Ineffpatrón de respiración efectiva",
       "Dolor"
     ],
-    "defaultNocCode": "Not Provided in Source",
-    "defaultNicCode": "Not Provided in Source",
+    "defaultNocCode": "0402",
+    "defaultNicCode": "3350",
     "serviceContext": "medicina_interna",
     "domain": "Dominio 3. Eliminación e intercambio",
     "class": "Clase 4. Función respiratoria"
@@ -1370,7 +1370,7 @@ const rawDIAGNOSES: Diagnosis[] = [
   {
     "id": "nanda_00032",
     "code": "00032",
-    "name": "Ineffpatrón de respiración efectivo",
+    "name": "Patrón respiratorio ineficaz",
     "definition": "Inspiración y / o caducidad que no no proporcionar una ventilación adecuada.",
     "relatedFactors": [
       "Ansiedad",
@@ -1379,8 +1379,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Aumento del esfuerzo físico",
       "Obesidad"
     ],
-    "defaultNocCode": "NOC_CODE_UNKNOWN",
-    "defaultNicCode": "NIC_CODE_UNKNOWN",
+    "defaultNocCode": "0403",
+    "defaultNicCode": "3350",
     "serviceContext": "uci",
     "domain": "Dominio 4. Actividad / descanso",
     "class": "Clase 4. Respuestas cardiovasculares / pulmonares"
@@ -4537,8 +4537,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Uso inadecuado de agente químico",
       "Agente de lesiones físicas"
     ],
-    "defaultNocCode": "N/A",
-    "defaultNicCode": "N/A",
+    "defaultNocCode": "2102",
+    "defaultNicCode": "1400",
     "serviceContext": "medicina_interna",
     "domain": "Dominio 12. Comodidad",
     "class": "Clase 1. Comodidad física"
@@ -4555,8 +4555,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Agente lesivo",
       "Desnutrición"
     ],
-    "defaultNocCode": "N/A",
-    "defaultNicCode": "N/A",
+    "defaultNocCode": "2102",
+    "defaultNicCode": "1400",
     "serviceContext": "medicina_interna",
     "domain": "Dominio 12. Comodidad",
     "class": "Clase 1. Comodidad física"
@@ -4573,8 +4573,8 @@ const rawDIAGNOSES: Diagnosis[] = [
       "Conocimiento inadecuado de las conductas de manejo del dolor.",
       "Negativo affect"
     ],
-    "defaultNocCode": "N/A",
-    "defaultNicCode": "N/A",
+    "defaultNocCode": "2102",
+    "defaultNicCode": "1400",
     "serviceContext": "medicina_interna",
     "domain": "Dominio 12. Comodidad",
     "class": "Clase 1. Comodidad física"

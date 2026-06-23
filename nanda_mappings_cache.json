@@ -116,5 +116,69 @@
       "Fomentar la autoconfianza y la resiliencia en situaciones sanitarias complejas."
     ],
     "justification": "Asociación local offline mediante coincidencia de palabras clave por faltar conexión o límite de IA."
+  },
+  "00030": {
+    "nandaCode": "00030",
+    "nandaName": "Intercambio de gases deteriorado",
+    "nocCode": "0402",
+    "nocName": "Estado respiratorio: intercambio gaseoso",
+    "nocIndicators": [
+      {
+        "code": "040201",
+        "name": "Presión parcial de oxígeno en sangre arterial (PaO2)"
+      },
+      {
+        "code": "040202",
+        "name": "Presión parcial de CO2 en sangre arterial (PaCO2)"
+      },
+      {
+        "code": "040211",
+        "name": "Saturación de O2"
+      }
+    ],
+    "nicCode": "3350",
+    "nicName": "Monitorización respiratoria",
+    "nicActivities": [
+      "Monitorizar la frecuencia, ritmo, profundidad y esfuerzo de las respiraciones.",
+      "Anotar el movimiento torácico, mirando la simetría, uso de músculos accesorios.",
+      "Monitorizar los niveles de saturación de oxígeno en pacientes sedados.",
+      "Auscultar los sonidos respiratorios, observando las áreas de disminución o ausencia de ventilación.",
+      "Realizar el seguimiento de los informes de radiología."
+    ],
+    "justification": "Vínculo clínico validado para el intercambio alveolar de gases y monitorización respiratoria."
+  },
+  "00032": {
+    "nandaCode": "00032",
+    "nandaName": "Patrón respiratorio ineficaz",
+    "nocCode": "0403",
+    "nocName": "Estado respiratorio: ventilación",
+    "nocIndicators": [
+      {
+        "code": "040301",
+        "name": "Frecuencia respiratoria"
+      },
+      {
+        "code": "040302",
+        "name": "Ritmo respiratorio"
+      },
+      {
+        "code": "040303",
+        "name": "Profundidad de la respiración"
+      },
+      {
+        "code": "040309",
+        "name": "Uso de músculos accesorios"
+      }
+    ],
+    "nicCode": "3350",
+    "nicName": "Monitorización respiratoria",
+    "nicActivities": [
+      "Monitorizar la frecuencia, ritmo, profundidad y esfuerzo de las respiraciones.",
+      "Anotar el movimiento torácico, mirando la simetría, uso de músculos accesorios.",
+      "Monitorizar los niveles de saturación de oxígeno en pacientes sedados.",
+      "Auscultar los sonidos respiratorios, observando las áreas de disminución o ausencia de ventilación.",
+      "Realizar el seguimiento de los informes de radiología."
+    ],
+    "justification": "Vínculo clínico validado para el patrón de ventilación e insuficiencia respiratoria."
   }
 }

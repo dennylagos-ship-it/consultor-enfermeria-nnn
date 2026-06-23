@@ -760,12 +760,14 @@ export default function App() {
     const isNocInvalid = !bestDiag.defaultNocCode || 
       bestDiag.defaultNocCode === "Not specified in source" || 
       bestDiag.defaultNocCode === "N/A" || 
-      bestDiag.defaultNocCode === "Not Provided in Source";
+      bestDiag.defaultNocCode === "Not Provided in Source" ||
+      bestDiag.defaultNocCode === "NOC_CODE_UNKNOWN";
       
     const isNicInvalid = !bestDiag.defaultNicCode || 
       bestDiag.defaultNicCode === "Not specified in source" || 
       bestDiag.defaultNicCode === "N/A" || 
-      bestDiag.defaultNicCode === "Not Provided in Source";
+      bestDiag.defaultNicCode === "Not Provided in Source" ||
+      bestDiag.defaultNicCode === "NIC_CODE_UNKNOWN";
 
     const matchedNoc = isNocInvalid 
       ? findBestNoc(bestDiag.name, bestDiag.definition) 
@@ -1072,12 +1074,14 @@ export default function App() {
     const isNocInvalid = !diag.defaultNocCode || 
       diag.defaultNocCode === "Not specified in source" || 
       diag.defaultNocCode === "N/A" || 
-      diag.defaultNocCode === "Not Provided in Source";
+      diag.defaultNocCode === "Not Provided in Source" ||
+      diag.defaultNocCode === "NOC_CODE_UNKNOWN";
       
     const isNicInvalid = !diag.defaultNicCode || 
       diag.defaultNicCode === "Not specified in source" || 
       diag.defaultNicCode === "N/A" || 
-      diag.defaultNicCode === "Not Provided in Source";
+      diag.defaultNicCode === "Not Provided in Source" ||
+      diag.defaultNicCode === "NIC_CODE_UNKNOWN";
 
     if (isNocInvalid || isNicInvalid) {
       if (subscriptionStatus !== 'active') {
@@ -4207,9 +4211,44 @@ Justificación del plan: ${analysisResult.justification}`;
         const data = await response.json();
         setPesResult(data.result);
         
-        // Find and link best NOC & NIC based on NANDA name and definition
-        let bestNoc = findBestNoc(pesSelectedNanda.name, pesSelectedNanda.definition);
-        let bestNic = findBestNic(pesSelectedNanda.name, pesSelectedNanda.definition);
+        // Find and link best NOC & NIC, prioritizing static codes if valid
+        const isPesNocInvalid = !pesSelectedNanda.defaultNocCode || 
+          pesSelectedNanda.defaultNocCode === "Not specified in source" || 
+          pesSelectedNanda.defaultNocCode === "N/A" || 
+          pesSelectedNanda.defaultNocCode === "Not Provided in Source" ||
+          pesSelectedNanda.defaultNocCode === "NOC_CODE_UNKNOWN";
+          
+        const isPesNicInvalid = !pesSelectedNanda.defaultNicCode || 
+          pesSelectedNanda.defaultNicCode === "Not specified in source" || 
+          pesSelectedNanda.defaultNicCode === "N/A" || 
+          pesSelectedNanda.defaultNicCode === "Not Provided in Source" ||
+          pesSelectedNanda.defaultNicCode === "NIC_CODE_UNKNOWN";
+
+        let bestNoc = isPesNocInvalid
+          ? findBestNoc(pesSelectedNanda.name, pesSelectedNanda.definition)
+          : (() => {
+              const matchedNoc = NOC_OUTCOMES.find(n => n.code === pesSelectedNanda.defaultNocCode);
+              return {
+                id: matchedNoc?.id || `noc_${pesSelectedNanda.defaultNocCode}`,
+                code: pesSelectedNanda.defaultNocCode,
+                name: matchedNoc?.name || 'Resultado por definir',
+                definition: matchedNoc?.definition || '',
+                indicators: matchedNoc?.indicators || [],
+                domain: matchedNoc?.domain || ''
+              };
+            })();
+
+        let bestNic = isPesNicInvalid
+          ? findBestNic(pesSelectedNanda.name, pesSelectedNanda.definition)
+          : (() => {
+              const matchedNic = NIC_INTERVENTIONS.find(n => n.code === pesSelectedNanda.defaultNicCode);
+              return {
+                id: matchedNic?.id || `nic_${pesSelectedNanda.defaultNicCode}`,
+                code: pesSelectedNanda.defaultNicCode,
+                name: matchedNic?.name || 'Intervención por definir',
+                activities: matchedNic?.activities || []
+              };
+            })();
 
         try {
           const mappingRes = await fetch('/api/get-nanda-mapping', {
