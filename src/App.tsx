@@ -348,6 +348,7 @@ export default function App() {
 
   // Paywall Modal State
   const [showPaywallModal, setShowPaywallModal] = useState<boolean>(false);
+  const [paypalLoaded, setPaypalLoaded] = useState<boolean>(false);
 
   // Support / Report Bug Modal States
   const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
@@ -442,6 +443,106 @@ export default function App() {
     document.addEventListener('click', handleDocumentClick);
     return () => document.removeEventListener('click', handleDocumentClick);
   }, []);
+
+  // Load PayPal SDK dynamically when Paywall modal is shown
+  useEffect(() => {
+    if (showPaywallModal) {
+      setPaypalLoaded(false);
+      const existingScript = document.getElementById('paypal-sdk-script');
+      if (existingScript) {
+        existingScript.remove();
+      }
+
+      const script = document.createElement('script');
+      script.id = 'paypal-sdk-script';
+      const clientId = import.meta.env.VITE_PAYPAL_CLIENT_ID || 'sb';
+      script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&vault=true&intent=subscription`;
+      script.async = true;
+      script.onload = () => {
+        setPaypalLoaded(true);
+      };
+      script.onerror = () => {
+        console.error("Failed to load PayPal SDK");
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        const s = document.getElementById('paypal-sdk-script');
+        if (s) {
+          s.remove();
+        }
+        if ((window as any).paypal) {
+          delete (window as any).paypal;
+        }
+      };
+    }
+  }, [showPaywallModal]);
+
+  // Render PayPal Smart Buttons
+  useEffect(() => {
+    if (paypalLoaded && showPaywallModal && (window as any).paypal && user) {
+      try {
+        const paypal = (window as any).paypal;
+
+        // Clear containers first to prevent duplicate buttons
+        const containerMonthly = document.getElementById('paypal-button-container-monthly');
+        if (containerMonthly) containerMonthly.innerHTML = '';
+        const containerYearly = document.getElementById('paypal-button-container-yearly');
+        if (containerYearly) containerYearly.innerHTML = '';
+
+        if (containerMonthly) {
+          paypal.Buttons({ 
+            style: {
+              shape: 'rect',
+              color: 'gold',
+              layout: 'vertical',
+              label: 'paypal'
+            },
+            createSubscription: (_data: any, actions: any) => {
+              const planId = import.meta.env.VITE_PAYPAL_PLAN_MONTHLY || 'P-3RX016086G904434M3NTZ24Y';
+              return actions.subscription.create({
+                plan_id: planId
+              });
+            },
+            onApprove: async (data: any) => {
+              await handlePaypalSuccess(data.subscriptionID, 'monthly');
+            },
+            onError: (err: any) => {
+              console.error('PayPal Monthly Subscription Error:', err);
+              alert('Error al iniciar la suscripción mensual con PayPal.');
+            }
+          }).render('#paypal-button-container-monthly');
+        }
+
+        if (containerYearly) {
+          paypal.Buttons({
+            style: {
+              shape: 'rect',
+              color: 'blue',
+              layout: 'vertical',
+              label: 'paypal'
+            },
+            createSubscription: (_data: any, actions: any) => {
+              const planId = import.meta.env.VITE_PAYPAL_PLAN_YEARLY || 'P-0GG825026C112234M3NTZ77Y';
+              return actions.subscription.create({
+                plan_id: planId
+              });
+            },
+            onApprove: async (data: any) => {
+              await handlePaypalSuccess(data.subscriptionID, 'yearly');
+            },
+            onError: (err: any) => {
+              console.error('PayPal Yearly Subscription Error:', err);
+              alert('Error al iniciar la suscripción anual con PayPal.');
+            }
+          }).render('#paypal-button-container-yearly');
+        }
+      } catch (err) {
+        console.error("Error rendering PayPal buttons:", err);
+      }
+    }
+  }, [paypalLoaded, showPaywallModal, user]);
+
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -574,33 +675,37 @@ export default function App() {
     }
   };
 
-  const handleManageSubscription = async () => {
+  const handlePaypalSuccess = async (subscriptionId: string, planType: 'monthly' | 'yearly') => {
     try {
-      const response = await fetch('/api/stripe/create-portal-session', {
+      const response = await fetch('/api/paypal/subscribe-success', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`
-        }
+        },
+        body: JSON.stringify({ subscriptionId, planType })
       });
 
-      if (response.status === 401) {
-        setShowAuthModal(true);
-        return;
-      }
-
       if (!response.ok) {
-        throw new Error("Portal session request failed");
+        throw new Error("Failed to activate subscription in backend");
       }
 
       const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.success) {
+        alert('¡Suscripción Premium activada con éxito! Ya puedes utilizar todas las herramientas de IA.');
+        setSubscriptionStatus('active');
+        setShowPaywallModal(false);
+      } else {
+        throw new Error(data.error || "Unknown backend error");
       }
-    } catch (err) {
-      console.error("Stripe portal error:", err);
-      alert("No se pudo abrir el panel de facturación.");
+    } catch (err: any) {
+      console.error("PayPal success processing error:", err);
+      alert('Pago aprobado por PayPal, pero hubo un error al activar tu cuenta. Escríbenos a soporte técnico indicando tu ID de suscripción: ' + subscriptionId);
     }
+  };
+
+  const handleManageSubscription = async () => {
+    alert("Tu suscripción Premium es administrada a través de tu cuenta de PayPal. Para cancelarla o modificarla, puedes iniciar sesión en paypal.com y dirigirte a la sección de pagos automáticos o suscripciones.");
   };
 
   const fetchSavedPlans = async () => {
@@ -7276,49 +7381,67 @@ Justificación del plan: ${analysisResult.justification}`;
               </div>
             </div>
 
-            {/* Plans Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
-              {/* Plan Mensual */}
-              <div className="border border-slate-200 hover:border-indigo-400 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative group">
-                <div>
-                  <h4 className="font-extrabold text-slate-800 text-xs">Mensual</h4>
-                  <p className="text-[10px] text-slate-400">Facturación mensual</p>
-                  <div className="mt-2 flex items-baseline gap-1 text-slate-800">
-                    <span className="text-2xl font-extrabold">$2.99</span>
-                    <span className="text-xs font-bold text-slate-450">USD/mes</span>
-                  </div>
-                </div>
+                        {/* Plans Selection */}
+            {!user ? (
+              <div className="text-center py-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 space-y-2">
+                <p className="text-xs font-bold text-indigo-950">Inicia sesión o regístrate para suscribirte</p>
+                <p className="text-[10px] text-slate-500">Debes tener una cuenta registrada para poder asociar tu suscripción Premium.</p>
                 <button
-                  onClick={() => handleSubscribe('monthly')}
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-[10px] transition-all cursor-pointer active:scale-95 font-sans"
+                  onClick={() => {
+                    setAuthMode('register');
+                    setShowAuthModal(true);
+                  }}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  Elegir Mensual
+                  Registrarse / Iniciar Sesión
                 </button>
               </div>
-
-              {/* Plan Anual */}
-              <div className="border-2 border-indigo-600 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative bg-indigo-50/20">
-                <span className="absolute -top-2.5 left-4 bg-indigo-600 text-white text-[8px] uppercase tracking-widest font-extrabold px-2 py-0.5 rounded-md shadow-sm">
-                  MEJOR PRECIO
-                </span>
-                <div>
-                  <h4 className="font-extrabold text-slate-800 text-xs">Anual</h4>
-                  <p className="text-[10px] text-indigo-600 font-bold">Ahorra 72% en el año</p>
-                  <div className="mt-2 flex items-baseline gap-1 text-slate-800">
-                    <span className="text-2xl font-extrabold">$9.99</span>
-                    <span className="text-xs font-bold text-slate-450">USD/año</span>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Plan Mensual */}
+                <div className="border border-slate-200 hover:border-indigo-400 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative group">
+                  <div>
+                    <h4 className="font-extrabold text-slate-800 text-xs">Mensual</h4>
+                    <p className="text-[10px] text-slate-455">Facturación mensual</p>
+                    <div className="mt-2 flex items-baseline gap-1 text-slate-800">
+                      <span className="text-2xl font-extrabold">$2.99</span>
+                      <span className="text-xs font-bold text-slate-455">USD/mes</span>
+                    </div>
+                  </div>
+                  <div className="min-h-11">
+                    {paypalLoaded ? (
+                      <div id="paypal-button-container-monthly" className="w-full"></div>
+                    ) : (
+                      <div className="w-full py-2.5 bg-slate-100 rounded-xl text-center text-[10px] text-slate-400 font-bold animate-pulse">Cargando PayPal...</div>
+                    )}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleSubscribe('yearly')}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-[10px] transition-all cursor-pointer active:scale-95 shadow-md shadow-indigo-600/10 font-sans"
-                >
-                  Elegir Anual
-                </button>
-              </div>
 
-            </div>
+                {/* Plan Anual */}
+                <div className="border-2 border-indigo-600 rounded-2xl p-4 flex flex-col justify-between text-left space-y-3 relative bg-indigo-50/20">
+                  <span className="absolute -top-2.5 left-4 bg-indigo-600 text-white text-[8px] uppercase tracking-widest font-extrabold px-2 py-0.5 rounded-md shadow-sm">
+                    MEJOR PRECIO
+                  </span>
+                  <div>
+                    <h4 className="font-extrabold text-slate-800 text-xs">Anual</h4>
+                    <p className="text-[10px] text-indigo-600 font-bold">Ahorra 72% en el año</p>
+                    <div className="mt-2 flex items-baseline gap-1 text-slate-800">
+                      <span className="text-2xl font-extrabold">$9.99</span>
+                      <span className="text-xs font-bold text-slate-455">USD/año</span>
+                    </div>
+                  </div>
+                  <div className="min-h-11">
+                    {paypalLoaded ? (
+                      <div id="paypal-button-container-yearly" className="w-full"></div>
+                    ) : (
+                      <div className="w-full py-2.5 bg-slate-100 rounded-xl text-center text-[10px] text-slate-400 font-bold animate-pulse">Cargando PayPal...</div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
 
             <div className="text-center space-y-2 pt-2 border-t border-slate-100">
               <button
@@ -7328,7 +7451,7 @@ Justificación del plan: ${analysisResult.justification}`;
                 Seguir en el Plan Gratuito (Búsqueda local offline)
               </button>
               <p className="text-[9px] text-slate-400">
-                Pago seguro encriptado procesado por Stripe. Facturación recurrente. Cancela cuando quieras.
+                Pago seguro encriptado procesado por PayPal. Facturación recurrente. Cancela cuando quieras.
               </p>
             </div>
 
